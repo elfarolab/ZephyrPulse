@@ -1,0 +1,57 @@
+upstream: https://github.com/zephyrproject-rtos/zephyr.git
+branch: main
+window_hours: 72
+state_dir: state
+site_url: http://localhost:8000/
+publish: false
+
+# Rendering only; no effect on collection or personal preferences.
+generator:
+  engine: zensical
+  strict: true
+  native_search: true
+
+# Compact board milestones and vendor signals, separate from 72-hour full news.
+history_days: 90
+history_batch: 250  # older commits per run; 0 = full backfill
+# Explicit LTS release series (quoted strings); check upstream EOL policy.
+lts_series: ['1.14', '2.7', '3.7']
+release_policy:
+  checked: '2026-11-26'
+  series:
+    '4.5': {status: 'Latest stable at policy snapshot', eol: '2027-10-28'}
+    '4.4': {status: 'Stable at policy snapshot', eol: '2027-04-12'}
+    '3.7': {status: 'Active LTS at policy snapshot', eol: '2029-07-27'}
+    '2.7': {status: 'End of life (historical LTS)', eol: '2025-01-26'}
+    '1.14': {status: 'End of life (historical LTS)', eol: '2022-01-01'}
+# Public open PRs; optional GITHUB_TOKEN in server environment.
+pull_requests:
+  enabled: true
+  pages: 2
+watchlist:
+  boards:
+    - '*mcxn*'
+    - ra8P1
+  vendors: []
+  peripherals: []
+# Initial visitor preferences. Browser settings override these, including empty lists.
+preferences:
+  requirements: [ethernet, can-fd, usb, crypto]
+  selected: []
+  baseline: main
+  comparison_rows: all
+  search: ''
+  matches_only: false
+  explorer_search: ''
+  explorer_watched: false
+  vendor: ''
+  home_limit: 8
+  watch_limit: 100
+  theme: default
+  hardware_query: ''
+  hardware_kind: all
+  hardware_vendor: ''
+  hardware_capability: ''
+  hardware_from: ''
+  hardware_to: ''
+  hardware_watched: false

@@ -1,0 +1,48 @@
+state/
+site/
+
+/docs/*.md
+/docs/events.json
+/docs/feed.xml
+/deploy/wrangler.toml
+/docs/boards/
+/docs/intelligence.json
+/docs/watchlist.xml
+
+/.pulse-build-*/
+/.zensical/
+
+# Runtime data and upstream Git repository
+/state/
+*.sqlite
+*.sqlite3
+*.db
+
+# Generated website
+/site/
+.site-staging*/
+.cache/
+
+# Python
+*.pyc
+env/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+
+# Credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs and archives
+*.log
+*.zip
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store

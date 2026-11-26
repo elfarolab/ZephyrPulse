@@ -1,0 +1,16 @@
+[Unit]
+Description=Collect and publish Zephyr Pulse
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=zephyr-pulse
+Group=zephyr-pulse
+WorkingDirectory=/opt/zephyr-pulse
+EnvironmentFile=-/etc/zephyr-pulse.env
+ExecStart=/opt/zephyr-pulse/.venv/bin/python /opt/zephyr-pulse/pulse.py
+TimeoutStartSec=2h
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0027

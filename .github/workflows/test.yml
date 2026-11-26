@@ -1,0 +1,43 @@
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/test*.cjs
+      - name: Build sample site
+        run: |
+          git init -b main /tmp/pulse-fixture
+          git -C /tmp/pulse-fixture config user.email test@example.invalid
+          git -C /tmp/pulse-fixture config user.name Fixture
+          mkdir -p /tmp/pulse-fixture/boards/test/kit
+          printf 'board:\n  name: kit\n  socs:\n    - name: chip\n' > /tmp/pulse-fixture/boards/test/kit/board.yml
+          printf 'identifier: kit/chip\nsupported: [gpio, can]\n' > /tmp/pulse-fixture/boards/test/kit/kit.yaml
+          git -C /tmp/pulse-fixture add .
+          git -C /tmp/pulse-fixture commit -m 'new board'
+          git -C /tmp/pulse-fixture tag v4.0.0
+          printf 'upstream: /tmp/pulse-fixture\nstate_dir: state/ci\npull_requests: {enabled: false}\n' > /tmp/pulse-config.yml
+          python pulse.py --config /tmp/pulse-config.yml --no-publish
+          test -f site/index.html
+          test -f site/boards.html
+          test -f site/watchlist.xml
+          test -f site/intelligence.json
+          test -f site/compare.html
+          test -f site/settings.html
+          test -f site/hardware-search.html
+      - name: Browser fixture smoke test
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+          python tests/news_browser_smoke.py
+          python tests/browser_smoke.py
+          python tests/rendered_smoke.py

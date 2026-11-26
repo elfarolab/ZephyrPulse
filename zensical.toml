@@ -1,0 +1,46 @@
+# Presentation only. Runtime site URL and search setting are supplied by the adapter.
+[project]
+site_name = "Zephyr Pulse"
+site_description = "Hardware-focused news from upstream Zephyr RTOS"
+site_url = "http://localhost:8000/"
+docs_dir = "docs"
+site_dir = "site"
+use_directory_urls = false
+repo_url = "https://github.com/zephyrproject-rtos/zephyr"
+repo_name = "Upstream Zephyr"
+copyright = "Unofficial community project · Not affiliated with the Zephyr Project"
+not_in_nav = "boards/**"
+extra_css = ["assets/pulse.css"]
+extra_javascript = ["assets/theme-zensical.js", "assets/preferences.js", "assets/intelligence.js", "assets/comparator.js", "assets/hardware-search.js", "assets/news.js"]
+nav = [
+  { "Overview" = "index.md" },
+  { "Hardware" = [{ "Board capability changes" = "board_feature.md" }, { "Possible board support" = "board_candidate.md" }, { "New boards" = "board.md" }, { "SoCs" = "soc.md" }, { "Sensors" = "sensor.md" }, { "Drivers" = "driver.md" }, { "Devicetree" = "dts.md" }] },
+  { "Explore" = [{ "Board explorer" = "boards.md" }, { "Hardware search" = "hardware-search.md" }, { "Compare hardware" = "compare.md" }] },
+  { "Intelligence" = [{ "Vendor activity" = "vendors.md" }, { "Releases / LTS" = "releases.md" }, { "Upcoming PRs" = "upcoming.md" }] },
+  { "More news" = [{ "Documentation" = "docs.md" }, { "Other changes" = "other.md" }, { "All commits" = "all.md" }] },
+  { "Personal" = [{ "Watchlist" = "watchlist.md" }, { "Settings" = "settings.md" }] },
+]
+
+[project.theme]
+variant = "classic"
+language = "en"
+font = false
+# Full-page navigation keeps vanilla JS mount lifecycle independent of the theme.
+features = ["navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.highlight"]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "teal"
+toggle.icon = "material/weather-night"
+toggle.name = "Dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "teal"
+toggle.icon = "material/weather-sunny"
+toggle.name = "Light mode"
+
+[project.plugins.search]
+enabled = true # native full-text search
+
+[project.markdown_extensions.tables]
