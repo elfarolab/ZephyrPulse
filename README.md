@@ -29,13 +29,13 @@ flowchart TD
     C --> D
     D --> E[Static generator adapter / Zensical]
     E --> F[Static website]
-    F --> G[Optional Cloudflare R2 + Worker]
+    F --> G[Optional Cloudflare R2 / CDN]
     F --> H[Browser search, comparator and settings]
 ```
 
 The collector fetches upstream Git changes and release tags, analyzes first-parent commit history and stores recent events in SQLite. By default, detailed news covers a rolling **72-hour window**, while compact board milestones and vendor statistics cover **90 days**. Historical backfill runs in batches and its coverage is reported on the site.
 
-Markdown, JSON and RSS are generated independently of the website renderer. Zensical builds the static HTML and provides native full-text search; Zephyr Pulse's structured hardware search and comparator use JSON and vanilla JavaScript. No application server or external search service is required. The supplied systemd timer runs every four hours.
+Markdown, JSON and RSS are generated independently of the website renderer. Zensical builds the static HTML and provides native full-text search; Zephyr Pulse's structured hardware search and comparator use JSON and vanilla JavaScript. No application server or external search service is required. Schedule the collector every four hours using cron or the supplied systemd timer.
 
 ## Installation
 
@@ -43,7 +43,7 @@ Markdown, JSON and RSS are generated independently of the website renderer. Zens
 
 - Linux, Git and Python 3.11 or newer, with `venv` and `pip`.
 - Sufficient disk space and network access for the complete upstream Git branch history and tags.
-- Optional: AWS CLI v2 and a Cloudflare account for R2 publication; Node.js/npm for deploying the Cloudflare Worker.
+- Optional: rclone and a Cloudflare account for direct R2 publication. The alternative bundled versioned Worker publisher uses AWS CLI v2 and Wrangler.
 
 No Zephyr SDK, `west`, GitHub token or paid API is required for basic operation. An optional GitHub token can increase rate limits for the open-PR snapshot.
 
@@ -70,7 +70,7 @@ python pulse.py --no-publish --git-seed /path/to/zephyr
 
 ### Configuration and operation
 
-Server configuration is in `config.yml`. The main settings are:
+Public server defaults are in `config.yml`. A private `config.local.yml`, if present, is automatically merged over them; `--config PATH` selects a different override. Mappings merge recursively, while lists and scalars replace defaults. Never commit your private configuration or credentials. The main settings are:
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
@@ -79,8 +79,9 @@ Server configuration is in `config.yml`. The main settings are:
 | `history_days` | `90` | Historical intelligence retention |
 | `history_batch` | `250` | Older commits processed per run |
 | `site_url` | `http://localhost:8000/` | Website base URL |
-| `publish` | `false` | Enable Cloudflare R2 publishing |
-| `generator.native_search` | `true` | Enable Zensical full-text search |
+| `publish` | `false` | Enable the alternative bundled versioned publisher; leave false for direct rclone sync |
+| `generator.native_search` | `false` | Optional Zensical full-text search; structured header search is always available |
+| `generator.incremental` | `false` | Optional persistent renderer cache; validate on your installation before enabling |
 
 Personal preferences are edited in the website's **Settings** page and override the published defaults. They do not change server configuration or the unfiltered news feed. Release lifecycle and LTS policy settings must be maintained against the [official Zephyr release policy](https://docs.zephyrproject.org/latest/releases/index.html).
 
@@ -102,55 +103,46 @@ python pulse.py --no-build --no-publish
 
 For data-only installations, use `pip install -r requirements-core.txt` instead of `requirements.txt`.
 
-By default, runtime data lives in `state/`, generated Markdown and feeds in `docs/`, and the rendered website in `site/`. Public feeds include `feed.xml`, `watchlist.xml` (server-configured watchlist), `events.json` and `intelligence.json`.
+Hardware evidence and stable/LTS snapshots are cached in SQLite. Board profiles retain their evidence revision until relevant sources change, while news and historical retention are refreshed on every run. The renderer reports actual byte-level file differences. Optional incremental rendering uses a separate persistent workspace and falls back to a clean staged build if validation fails.
+
+By default, runtime data lives in `state/`, generated Markdown and feeds in `docs/`, and the rendered website in `site/`. Public feeds include `feed.xml`, `watchlist.xml` (server-configured watchlist), `events.json` and the compact `intelligence.json` catalog (schema version 3). The browser joins stable metadata with `data/activity.json` and `data/news-view.json`. It loads small news/preferences views from `data/` and retrieves detailed board evidence on demand via each target’s `evidence_url`. The generated `docs/data/` directory must not be committed.
 
 ### Schedule automatic updates
 
-The supplied systemd service expects the application at `/opt/zephyr-pulse`. On Debian/Ubuntu, after placing the project there, create a dedicated service user (if it does not already exist) and install the units:
+Run as the project owner. Use an absolute Python path and a lock to avoid overlapping scheduled jobs. For example, for a local-only installation at `/opt/zephyr-pulse`, add this to the owner's crontab:
 
-```bash
-sudo useradd --system --home-dir /opt/zephyr-pulse \
-    --shell /usr/sbin/nologin zephyr-pulse
-sudo chown -R zephyr-pulse:zephyr-pulse /opt/zephyr-pulse
-cd /opt/zephyr-pulse
-sudo -u zephyr-pulse python3 -m venv .venv
-sudo -u zephyr-pulse .venv/bin/pip install -r requirements.txt
-sudo install -m 0644 deploy/zephyr-pulse.service \
-    deploy/zephyr-pulse.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now zephyr-pulse.timer
-sudo systemctl start zephyr-pulse.service
+```cron
+0 */4 * * * flock -n /opt/zephyr-pulse/.cron.lock sh -c 'cd /opt/zephyr-pulse && .venv/bin/python pulse.py --no-publish' >> /opt/zephyr-pulse/pulse.log 2>&1
 ```
 
-The timer runs every four hours in UTC. To monitor collection:
-
-```bash
-journalctl -u zephyr-pulse.service -f
-systemctl list-timers zephyr-pulse.timer
-```
+Alternatively, adapt the supplied `deploy/zephyr-pulse.service` and `.timer` to your installation. Use only one scheduler.
 
 ### Publish to Cloudflare R2 (optional)
 
-The generated `site/` directory can be served by a static web server or published through the included Cloudflare R2 integration.
+The generated `site/` directory can be served by any static web server or synchronized directly to an R2 bucket. No Worker or AWS account is required for direct publishing.
 
-1. Create a private R2 bucket and scoped S3-compatible read/write credentials. Install AWS CLI v2 on the collector server.
-2. Copy `deploy/env.example` to `/etc/zephyr-pulse.env`, populate the R2 account, bucket and access credentials, and restrict file permissions to root (`sudo chmod 600 /etc/zephyr-pulse.env`). The supplied systemd service loads this file. Never commit credentials.
-3. Set `publish: true` and `site_url` to your public website URL in `config.yml`.
-4. From `deploy/`, copy `wrangler.example.toml` to `wrangler.toml`, set `bucket_name` to match your R2 bucket, and deploy the Worker:
+1. Create a dedicated R2 Standard bucket, attach the public custom domain under the bucket settings, and create scoped object read/write credentials.
+2. Install [rclone](https://rclone.org/), use `rclone config` to configure an S3 remote with the Cloudflare provider and account-specific R2 endpoint. Store credentials outside the Git repository with restricted permissions.
+3. Set `site_url` to the public website URL and `publish: false` in the ignored `config.local.yml`. Generate the site with `python pulse.py --no-publish`.
+4. Configure a Cloudflare URL Rewrite Rule for the public hostname to rewrite `/` to `/index.html`; other pages use explicit `.html` paths. Configure a Cache Rule for the hostname to cache static objects, including HTML and JSON, while respecting the origin TTL.
+5. Test the dedicated bucket with `--dry-run`, then remove that option to publish:
 
    ```bash
-   npx wrangler login
-   npx wrangler deploy
+   rclone sync site/ pulse_r2:YOUR_DEDICATED_BUCKET \
+       --fast-list --checksum --delete-after --s3-no-check-bucket \
+       --header-upload 'Cache-Control: public, max-age=300' \
+       --stats 15s --stats-log-level INFO --log-level INFO --dry-run
    ```
 
-5. Attach a custom domain to the Worker and run `sudo systemctl start zephyr-pulse.service` to build and publish the site using the configured service environment.
+   The remote name `pulse_r2` is an example. Sync deletes obsolete remote objects, so do not use a shared bucket. Schedule build and sync together in a private script that stops on failed builds and prevents concurrent publication. Identical objects are skipped where checksums are available. Direct sync is not an atomic deployment, and Cloudflare storage and operation charges may apply.
 
-The publisher uploads each build to a new release prefix and switches the active pointer only after upload succeeds. Retain the active release and recent rollback versions when pruning old R2 objects. A failed build or upload does not activate a new release.
+The bundled `deploy/publish.sh` and `deploy/worker.js` remain an alternative versioned publishing mechanism for operators who require an active-release pointer. Do not mix it with direct synchronization in the same bucket.
 
-See the [Cloudflare R2 documentation](https://developers.cloudflare.com/r2/) for account and bucket setup.
+See the [Cloudflare R2 documentation](https://developers.cloudflare.com/r2/) and [rclone S3 documentation](https://rclone.org/s3/) for setup details.
 
 ## License
 
 Zephyr Pulse is released under the [MIT License](LICENSE). Upstream Zephyr, third-party dependencies and assets retain their respective licenses.
 
 Zephyr Pulse is an unofficial, independent project and is not affiliated with or endorsed by the Zephyr Project.
+

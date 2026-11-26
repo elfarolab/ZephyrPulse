@@ -29,6 +29,8 @@ def main():
             assert page.locator('.md-header__button.md-logo:visible').count()==0
             group=page.locator('.pulse-category-group').filter(has=page.locator('.pulse-news-table')).first;group.locator('summary strong').click();table=group.locator('.pulse-news-table');table.locator('.pulse-news-row').first.wait_for();assert table.locator('.pulse-news-detail:visible').count()==0
             table.locator('.pulse-news-row').first.locator('button').click();assert table.locator('.pulse-news-detail:visible a').count()>0
+            page.set_viewport_size({'width':1920,'height':1000});assert page.locator('.md-main__inner').evaluate('el=>el.getBoundingClientRect().width') <= 1920*.72
+            page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog').get_by_role('link',name='kit/chip',exact=True).wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
             page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'
             browser.close()

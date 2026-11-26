@@ -342,7 +342,7 @@ def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.
     return f'<span class="pulse-icon pulse-i-{escape(name, quote=True)}" aria-hidden="true"></span>'
 
-def render(db, docs, now, hours, site_url, statuses=None, boards=None):
+def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_news=False):
     from intelligence import board_ids, folder_index
     statuses = statuses or {}; boards=boards or {}; idx=folder_index(boards)
     docs.mkdir(parents=True,exist_ok=True)
@@ -364,7 +364,9 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None):
     from news_table import render_category_summary
     home += ['</div>','','## Priority highlights','','News grouped by category for the rolling window. Expand a category for its three newest events, or select its name to open the full table. All categories remain visible regardless of your watchlist.','',render_category_summary(rows,statuses,boards,idx),'','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
     (docs/'index.md').write_text('\n'.join(home))
-    for k,v in CATEGORIES.items(): (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+f'{counts[k]} events · newest first.\n\n'+blocks([r for r in rows if r['kind']==k]))
+    for k,v in CATEGORIES.items():
+        content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else blocks([r for r in rows if r['kind']==k]))
+        (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+f'{counts[k]} events · newest first.\n\n'+content)
     (docs/'all.md').write_text(front+'# All commits\n\n'+header+'\n'.join(f"- {r['committed'][:16].replace('T',' ')} UTC · [{md(r['subject'])}]({UPSTREAM}/commit/{r['sha']})" for r in db.execute('SELECT * FROM commits ORDER BY committed DESC,sha')))
     (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'window_hours':hours,'events':[dict(r) for r in rows]},indent=2,ensure_ascii=False))
     write_rss(docs/'feed.xml',rows,site_url)
@@ -387,7 +389,7 @@ def remove_legacy_logo(docs):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config',type=Path,default=ROOT/'config.yml')
+    parser.add_argument('--config',type=Path,help='Override public config.yml (default: config.local.yml if present)')
     parser.add_argument('--git-seed', type=Path, help='Reuse full history from an existing local Zephyr repository on first sync')
     parser.add_argument('--no-publish',action='store_true')
     parser.add_argument('--no-build',action='store_true')
@@ -398,8 +400,9 @@ def main():
     started=time.monotonic()
     logging.info('Zephyr Pulse %s starting (PID %d)', (ROOT/'VERSION').read_text().strip(), os.getpid())
     logging.info('Git version: %s', run('git', '--version').strip())
-    logging.info('Reading configuration: %s', args.config)
-    cfg=yload(args.config.read_text()); state=ROOT/cfg.get('state_dir','state'); state.mkdir(parents=True,exist_ok=True)
+    from configuration import load_config
+    logging.info('Reading configuration: config.yml + %s', args.config or (ROOT/'config.local.yml' if (ROOT/'config.local.yml').exists() else 'no local overrides'))
+    cfg=load_config(ROOT,args.config); state=ROOT/cfg.get('state_dir','state'); state.mkdir(parents=True,exist_ok=True)
     logging.info('State: %s; branch: %s; news: %sh; history: %sd',state,cfg.get('branch','main'),cfg.get('window_hours',72),cfg.get('history_days',90))
     logging.info('Build: %s; publish: %s',not args.no_build,bool(cfg.get('publish',False) and not args.no_publish and not args.no_build))
     with (state/'run.lock').open('w') as lock:
@@ -415,20 +418,21 @@ def main():
         try:
             with stage('Collect recent news'):
                 collect(db,repo,head,now,int(cfg.get('window_hours',72)))
-            from intelligence import inventory, update_history, release_tags, release_status, get_prs, render_extra
+            from intelligence import inventory, update_history, tracked_releases, release_status, get_prs, render_extra
             with stage('Build board inventory'):
                 boards=inventory(repo,head,db)
                 logging.info('Inventory: %d boards',len(boards))
             with stage('Update historical intelligence'):
                 coverage=update_history(db,repo,head,now,boards,int(cfg.get('history_days',90)),0 if args.history_backfill else int(cfg.get('history_batch',250)))
             with stage('Check release inclusion'):
-                tags=release_tags(repo,set(str(x) for x in cfg.get('lts_series',['2.7','3.7'])))
+                tags,policy=tracked_releases(repo,cfg)
+                logging.info('Tracked release tags: %s', ', '.join(t['tag'] for t in tags) or 'none')
                 shas=[r[0] for r in db.execute('SELECT sha FROM commits UNION SELECT sha FROM milestones')]
-                logging.info('Release inclusion: %d stable tags, %d commits to check (including cached results)',len(tags),len(shas))
+                logging.info('Release inclusion: %d tracked stable tags, %d commits to check (including cached results)',len(tags),len(shas))
                 statuses=release_status(repo,db,tags,shas)
             from comparison import release_snapshots
             with stage('Read release board snapshots'):
-                snapshots=release_snapshots(repo,tags,boards,cfg.get('release_policy',{}),now,db)
+                snapshots=release_snapshots(repo,tags,boards,policy,now,db)
             with stage('Refresh upcoming pull requests'):
                 prs=get_prs(db,cfg,now)
                 logging.info('PR snapshot: %s; %d scanned, %d matched',prs['status'],prs.get('scanned',0),len(prs['items']))
@@ -436,9 +440,9 @@ def main():
             with stage('Remove obsolete upstream branding'):
                 remove_legacy_logo(ROOT/'docs')
             with stage('Generate recent news Markdown and feeds'):
-                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards)
+                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False))
             with stage('Generate board pages, JSON and intelligence feeds'):
-                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),cfg.get('release_policy',{}),cfg.get('preferences',{}),snapshots)
+                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),policy,cfg.get('preferences',{}),snapshots)
         finally:
             db.close()
         if not args.no_build:

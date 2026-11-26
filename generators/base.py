@@ -31,8 +31,8 @@ def validate_site(docs: Path, output: Path):
             raise RuntimeError(f'Missing/empty required output: {name}')
     for name in ('events.json','intelligence.json'):
         with (output/name).open(encoding='utf-8') as f: data = json.load(f)
-        if name == 'intelligence.json' and data.get('schema_version') == 2:
-            for view in ('data/preferences.json','data/news-view.json'):
+        if name == 'intelligence.json' and data.get('schema_version') in (2,3):
+            for view in ('data/preferences.json','data/news-view.json') + (('data/activity.json',) if data.get('schema_version') == 3 else ()):
                 with (output/view).open(encoding='utf-8') as f: json.load(f)
             import re
             refs = {t['evidence_url'] for t in data['comparison']['targets']}
@@ -56,6 +56,7 @@ def content_changes(old: Path, new: Path):
         prior=previous.get(rel)
         state=('new' if prior is None else 'unchanged' if path.stat().st_size==prior.stat().st_size and hashlib.sha256(path.read_bytes()).digest()==hashlib.sha256(prior.read_bytes()).digest() else 'changed')
         counts[state]+=1
+        if state!='unchanged': counts['changed_bytes']+=path.stat().st_size
         if rel.parts[0]=='boards' and rel.suffix=='.html': boards[state]+=1
     for rel in previous.keys()-current.keys():
         counts['removed']+=1
@@ -80,6 +81,7 @@ def build_site(project: Path, generator: Generator, site_url: str) -> Path:
         with stage('Compare rendered site contents'):
             counts,boards=content_changes(dest,new)
             logging.info('Rendered site: %d new, %d changed, %d unchanged, %d removed',counts['new'],counts['changed'],counts['unchanged'],counts['removed'])
+            logging.info('Rendered changed/new bytes: %.2f MiB',counts['changed_bytes']/1048576)
             logging.info('Board HTML: %d new, %d changed, %d unchanged, %d removed',boards['new'],boards['changed'],boards['unchanged'],boards['removed'])
         backup = work/'previous'
         if dest.exists(): dest.rename(backup)

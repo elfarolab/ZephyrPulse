@@ -37,7 +37,7 @@ class IntelligenceTest(unittest.TestCase):
         self.assertIn('unwatched',(docs/'index.md').read_text()); self.assertIn('unwatched',(docs/'boards.md').read_text()); self.assertNotIn('unwatched',(docs/'watchlist.md').read_text())
         self.assertTrue((docs/'watchlist.xml').exists()); self.assertIn('Declared',(docs/'boards'/f"{boards[key]['slug']}.md").read_text())
         # JSON and static page include release metadata; browser filtering doesn't alter global events.
-        self.assertTrue(any(x['watched'] for x in data['events'])); self.assertTrue(any(not x['watched'] for x in data['events']))
+        self.assertTrue(any(x['watched'] for x in json.loads((docs/'data/news-view.json').read_text())['events'])); self.assertTrue(any(not x['watched'] for x in json.loads((docs/'data/news-view.json').read_text())['events']))
         self.assertIn('v4.0.0',(docs/'releases.md').read_text())
     def test_history_retention_and_rewrite(self):
         now=dt.datetime.now(UTC); collect(self.db,self.g,self.base,now,72); boards=inventory(self.g,self.base)

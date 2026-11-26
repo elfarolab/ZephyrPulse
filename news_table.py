@@ -13,14 +13,14 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
     if not items:
         return '_No matching events in this window._\n'
     out = ['<div class="pulse-news-table" data-pulse-news="100">',
-           '<div class="pulse-news-scroll"><table class="pulse-news-list"><thead><tr>',
-           '<th scope="col"><span class="pulse-sr-only">Details</span></th>']
+           '<div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="7"></colgroup><thead><tr>',
+           '<th scope="col" class="pulse-news-expand"><span class="pulse-sr-only">Details</span></th>']
     out.extend(f'<th scope="col">{escape(c)}</th>' for c in COLUMNS)
     out.append('</tr></thead><tbody>')
     for item in items:
         r = dict(item); sha = r['sha']; kind = r['kind']; subject = r['subject']; headline = r.get('commit_subject') or subject
         stamp = r['committed'][:16].replace('T', ' '); confidence = r['confidence'].capitalize()
-        rel = statuses.get(sha, r.get('release', {})); release = rel.get('first_release') or ('Main only' if rel.get('status') == 'main_only' else 'Unknown')
+        rel = statuses.get(sha, r.get('release', {})); release = rel.get('first_release') or ('Not in tracked releases' if rel.get('status') == 'main_only' else 'Unknown')
         ids = r.get('boards') if 'boards' in r else board_ids(r, boards, idx)
         linked = [boards[k] for k in ids if k in boards]
         vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)

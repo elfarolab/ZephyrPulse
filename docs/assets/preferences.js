@@ -25,7 +25,8 @@
     const persist=()=>{try{storage.setItem(KEY,JSON.stringify(custom));available=true;}catch(_){available=false;}return available;};
     return {get:()=>({...base,...custom}),defaults:()=>({...base}),saved:()=>available,update:patch=>{custom={...custom,...clean(patch)};return persist();},replace:patch=>{custom=clean(patch);return persist();},reset:()=>{custom={};return persist();},export:()=>({version:3,preferences:{...base,...custom}})};
   }
-  const api={create,clean,defaults,KEY};
+  function joinCatalog(catalog,dynamic,news){const data={...catalog,...dynamic,events:news.events||[]};data.comparison={...data.comparison,targets:data.comparison.targets.map(t=>({...t,...(dynamic.target_activity?.[t.id]||{})}))};data.boards=(data.boards||[]).map(b=>Object.hasOwn(dynamic.board_activity||{},b.id)?{...b,last_activity:dynamic.board_activity[b.id]}:b);return data;}
+  const api={create,clean,defaults,KEY,joinCatalog};
   if(typeof module!=='undefined'&&module.exports){module.exports=api;return;}
   const base=new URL('../',document.currentScript.src);
   const node=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
@@ -34,7 +35,7 @@
   const promises=new Map();
   function load(view='intelligence.json'){
     if(!promises.has(view)){
-      const task=(async()=>{const r=await fetch(new URL(view,base));if(!r.ok){if(view!=='intelligence.json'&&r.status===404)return load();throw Error('HTTP '+r.status);}const data=await r.json();let storage;try{storage=global.localStorage;}catch(_){}return {data,store:create(data,storage)};})();
+      const task=(async()=>{const r=await fetch(new URL(view,base));if(!r.ok){if(view!=='intelligence.json'&&r.status===404)return load();throw Error('HTTP '+r.status);}let data=await r.json();if(view==='intelligence.json'&&data.schema_version===3){const [a,n]=await Promise.all([fetch(new URL('data/activity.json',base)),fetch(new URL('data/news-view.json',base))]);if(!a.ok||!n.ok)throw Error('Activity/news HTTP '+a.status+'/'+n.status);const [dynamic,news]=await Promise.all([a.json(),n.json()]);data=joinCatalog(data,dynamic,news);}let storage;try{storage=global.localStorage;}catch(_){}return {data,store:create(data,storage)};})();
       promises.set(view,task);task.catch(()=>promises.delete(view));
     }
     return promises.get(view);

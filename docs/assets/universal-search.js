@@ -1,0 +1,20 @@
+/* Lightweight search overlay: datasets are fetched only on first open. */
+(()=>{'use strict';
+const P=window.PulsePreferences;
+function mount(){
+  const header=document.querySelector('.md-header__inner');if(!header||header.querySelector('.pulse-universal-trigger'))return;
+  const trigger=P.button('',open);trigger.className='pulse-universal-trigger';trigger.setAttribute('aria-label','Search hardware and news');const icon=P.node('span');icon.className='pulse-icon pulse-i-search';icon.setAttribute('aria-hidden','true');trigger.append(icon,P.node('span','Search hardware & news · Ctrl+K'));
+  // Native search remains available when explicitly enabled. Place our button beside it.
+  const repo=header.querySelector('.md-header__source');header.insertBefore(trigger,repo?.parentNode===header?repo:null);
+  const dialog=P.node('dialog');dialog.className='pulse-universal-dialog';dialog.setAttribute('aria-label','Search hardware and news');const title=P.node('header');title.append(P.node('strong','Search hardware & news'),P.button('Close',()=>dialog.close()));const input=P.node('input');input.type='search';input.placeholder='*mcxn*, ra8P1, can-fd…';input.setAttribute('aria-label','Universal search query');input.maxLength=256;
+  const status=P.node('p','Type a board, MCU, driver or peripheral.');status.setAttribute('role','status');const results=P.node('div');const full=P.link('Open advanced hardware search','hardware-search.html');dialog.append(title,input,status,results,full);document.body.append(dialog);
+  let records=null,loading=null,timer;
+  function collect(data){const rows=window.PulseHardwareSearch.records(data);const socs=new Set(),features=new Set();for(const t of data.comparison?.targets||[]){for(const soc of t.socs||[])socs.add(soc);for(const f of [...(t.metadata?.features||[]),...(t.metadata?.source_features||[])])features.add(f);}for(const [kind,terms] of [['soc-id',socs],['capability-id',features]])for(const title of [...terms].sort()){rows.push({kind,title,detail:'',url:(kind==='soc-id'?'boards.html':'hardware-search.html')+'?subject='+encodeURIComponent(title),terms:[title],vendors:[],features:[],boardFields:[],release:''});}return rows;}
+  function draw(){const q=input.value.trim();results.replaceChildren();full.href=new URL('hardware-search.html'+(q?'?subject='+encodeURIComponent(q):''),P.base);if(!records){status.textContent='Loading search data…';return;}if(!q){status.textContent='Type a board, MCU, driver or peripheral.';return;}
+    const matches=window.PulseHardwareSearch.filter(records,{hardware_query:q});status.textContent=matches.length+' matches';const groups=new Map();for(const r of matches){const k=r.kind==='target'?'Board targets':r.kind==='soc-id'?'MCUs / SoCs':r.kind==='capability-id'?'Peripheral capabilities':r.kind==='pr'?'Upcoming pull requests':r.kind==='vendor'?'Vendors':r.kind==='release'?'Releases':'Recent '+r.kind.replaceAll('_',' ');if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}for(const [k,rows] of groups){results.append(P.node('h3',k+' ('+rows.length+')'));for(const r of rows.slice(0,5)){const path=r.kind==='target'||['pr','vendor','release','soc-id','capability-id'].includes(r.kind)?r.url:r.kind+'.html?subject='+encodeURIComponent(r.title);results.append(P.link(r.title,path));}}}
+  async function open(){if(!dialog.open)dialog.showModal();input.focus();if(!records){try{loading??=P.load().then(({data})=>collect(data));records=await loading;}catch(e){loading=null;status.textContent='Search unavailable. Try again or open advanced search.';return;}}draw();}
+  input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(draw,100);});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();location.href=full.href;}});
+  dialog.addEventListener('close',()=>trigger.focus());document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();e.stopImmediatePropagation();open();}},true);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+})();

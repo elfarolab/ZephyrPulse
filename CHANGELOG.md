@@ -1,3 +1,36 @@
+# v0.3.15 — Compact expandable news tables
+
+- Preserve the first header cell in the table layout; hide only its accessible label. Reserve a narrow 2rem desktop column and a 1.7rem mobile grid track for expand controls.
+- Enlarge and center the category-colored triangle, retain keyboard focus and expansion state, and apply the same markup to static and JavaScript-rendered news tables.
+- Add browser geometry regression coverage for desktop and mobile. No configuration or database changes.
+
+# v0.3.14 — Contextual table navigation and column sorting
+
+- Filter vendor activity rows and chart together on incoming vendor links; exact case-insensitive vendor and SoC filters, clearable URL state, and search links retain context.
+- Add accessible ascending/descending header controls to data tables, sorting complete news and comparator discovery datasets before pagination; preserve expanded news details. Action-only headers remain non-sortable.
+- No database or configuration changes.
+
+# v0.3.13 — Disabled search index validation
+
+- Accept Zensical 0.1.3's normal empty `search.json` in both clean and incremental builds. Reject nonempty or malformed indexes when native search is disabled; retain existing clean fallback and publishing protection. Preserve the small empty index rather than deleting a renderer-owned artifact.
+- Correct CI checks to validate index contents and confirm a successful incremental cache baseline. No configuration or database changes.
+
+# v0.3.12 — Focus release tracking on current hardware
+
+- Track only the latest final release by default in inclusion checks, comparison snapshots, search and release pages; `release_tracking: latest_and_lts` optionally adds the latest final tag from explicitly configured `lts_series`.
+- Exclude Zephyr `.99` development tags as well as release candidates, use numeric ordering, and label negative inclusion results as not in tracked releases rather than main only.
+- Keep existing Git tags and full main history; obsolete snapshot cache entries are pruned by the existing snapshot cleanup. No migration of user data required.
+
+# v0.3.11 — Compact layout, universal search and resource optimization
+
+- Center the desktop layout at 70% viewport width on wide screens; retain responsive mobile layout and reduce settings form padding, typography and field heights.
+- Add a lazy, generator-independent search dialog (Ctrl/Cmd+K) using structured hardware and news records. Native Zensical search defaults to disabled in fresh installations; an explicit existing configuration value is respected. Optional native search still indexes full static pages.
+- Browser schema 3 separates stable `intelligence.json` from `data/activity.json`; the browser merges them. Category pages load one shared news view when native search is disabled, with raw JSON and all-commit links as no-JavaScript fallback. Board evidence and preference keys remain unchanged.
+- Merge public YAML defaults with optional `config.local.yml` or an explicit `--config` override recursively; lists and scalar values replace defaults. Invalid YAML fails rather than silently reverting.
+- Batch reject release commits unreachable from any stable tag, then check exact tag inclusion for remaining candidates. Report changed/new rendered bytes.
+- Optional persistent Zensical workspace (`generator.incremental: true`), validated before publication, with clean fallback on failure and clean rebuild after Markdown deletion or renderer configuration changes. Default remains clean until tested on the deployment server.
+- Optional private cron script supports `--dry-run`, keeps checksum verification, and reads merged configuration. No new dependencies, no Worker required. Full integration and live R2 testing remain deployment tasks.
+
 # v0.3.10 — Category navigation and lighter browser data
 
 - Overview lists every category with its complete 72-hour event count and newest timestamp. Expand for three recent events; clicking the category opens its full existing table. All category pages retain pagination, filtering, sorting and evidence expansion.

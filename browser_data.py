@@ -69,7 +69,16 @@ def publish_catalog(docs, comparison, payload):
     write_changed(docs / 'data' / 'news-view.json', news_bytes)
     write_changed(docs / 'data' / 'preferences.json', prefs_bytes)
     logging.info('Browser news view: %.2f MiB; settings view: %.2f KiB', len(news_bytes)/1048576, len(prefs_bytes)/1024)
-    payload = {**payload, 'schema_version': 2, 'comparison': comparison}
+    # Keep frequently changing activity out of the hardware catalog.
+    activity = {t['id']: {k:t.pop(k) for k in ('last_milestone','milestone_count','vendor_commits','vendor_last') if k in t} for t in comparison['targets']}
+    board_activity = {b['id']: b.pop('last_activity') for b in payload.get('boards', []) if 'last_activity' in b}
+    dynamic = {k:payload[k] for k in ('updated','head','coverage','vendors','pull_requests') if k in payload}
+    dynamic.update(target_activity=activity, board_activity=board_activity)
+    dynamic_bytes = encoded(dynamic)
+    write_changed(docs / 'data' / 'activity.json', dynamic_bytes)
+    payload = {k:v for k,v in payload.items() if k not in dynamic and k!='events'}
+    payload = {**payload, 'schema_version': 3, 'comparison': comparison}
+    logging.info('Browser activity: %.2f MiB', len(dynamic_bytes)/1048576)
     raw = encoded(payload)
     write_changed(docs / 'intelligence.json', raw)
     logging.info('Browser catalog: %.2f MiB; current board evidence: %d files, %d changed/new, %.2f MiB total', len(raw)/1048576, len(wanted), changed, total/1048576)

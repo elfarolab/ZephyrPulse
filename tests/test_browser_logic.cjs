@@ -33,3 +33,8 @@ test('DTS hints stay separate from declarations and disabled-only evidence',()=>
  assert.equal(C.state(t,'can-fd','main'),'source-evidence');assert.equal(C.state(t,'can-fd','v4'),'source-present');assert.equal(C.state(t,'usb-host','main'),'source-present');assert.equal(C.state(t,'can','main'),'declared');
  assert.deepEqual(C.coverage(t,['can','can-fd','usb-host'],'main'),{declared:1,'not-declared':0,unknown:0,'source-evidence':1,'source-present':1});
 });
+test('schema 3 joins live activity and news without mutating stable catalog',()=>{
+ const raw={comparison:{targets:[{id:'a',metadata:{features:['can-fd']}}]},boards:[{id:'kit'}]};
+ const merged=P.joinCatalog(raw,{target_activity:{a:{milestone_count:4}},board_activity:{kit:'today'}},{events:[{subject:'new'}]});
+ assert.equal(merged.comparison.targets[0].milestone_count,4);assert.deepEqual(merged.comparison.targets[0].metadata.features,['can-fd']);assert.equal(merged.boards[0].last_activity,'today');assert.equal(merged.events[0].subject,'new');assert.equal(raw.comparison.targets[0].milestone_count,undefined);
+});

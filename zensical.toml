@@ -11,7 +11,7 @@ repo_name = "Upstream Zephyr"
 copyright = "Unofficial community project · Not affiliated with the Zephyr Project"
 not_in_nav = "boards/**"
 extra_css = ["assets/pulse.css"]
-extra_javascript = ["assets/theme-zensical.js", "assets/preferences.js", "assets/intelligence.js", "assets/comparator.js", "assets/hardware-search.js", "assets/news.js"]
+extra_javascript = ["assets/theme-zensical.js", "assets/preferences.js", "assets/table-controls.js", "assets/intelligence.js", "assets/comparator.js", "assets/hardware-search.js", "assets/news.js", "assets/universal-search.js"]
 nav = [
   { "Overview" = "index.md" },
   { "Hardware" = [{ "Board capability changes" = "board_feature.md" }, { "Possible board support" = "board_candidate.md" }, { "New boards" = "board.md" }, { "SoCs" = "soc.md" }, { "Sensors" = "sensor.md" }, { "Drivers" = "driver.md" }, { "Devicetree" = "dts.md" }] },
@@ -41,6 +41,6 @@ toggle.icon = "material/weather-sunny"
 toggle.name = "Light mode"
 
 [project.plugins.search]
-enabled = true # native full-text search
+enabled = false # native full-text search
 
 [project.markdown_extensions.tables]

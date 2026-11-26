@@ -43,10 +43,22 @@ jobs:
           git -C /tmp/pulse-fixture commit -m 'unrelated documentation'
           python pulse.py --config /tmp/pulse-config.yml --no-publish
           sha256sum --check /tmp/board-html.sha256
+      - name: Check optional cached renderer and disabled native search
+        run: |
+          python -c "from pathlib import Path; from generators import get_generator; get_generator({'native_search': False})._validate_search(Path('site'))"
+          printf '\ngenerator: {incremental: true, native_search: false}\n' >> /tmp/pulse-config.yml
+          python pulse.py --config /tmp/pulse-config.yml --no-publish
+          sha256sum --check /tmp/board-html.sha256
+          test -f .pulse-render-cache/signature
+          python pulse.py --config /tmp/pulse-config.yml --no-publish
+          sha256sum --check /tmp/board-html.sha256
+          test -f .pulse-render-cache/signature
+          python -c "from pathlib import Path; from generators import get_generator; get_generator({'native_search': False})._validate_search(Path('site'))"
       - name: Browser fixture smoke test
         run: |
           pip install playwright
           python -m playwright install --with-deps chromium
           python tests/news_browser_smoke.py
+          python tests/table_browser_smoke.py
           python tests/browser_smoke.py
           python tests/rendered_smoke.py

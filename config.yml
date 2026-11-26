@@ -5,17 +5,23 @@ state_dir: state
 site_url: http://localhost:8000/
 publish: false
 
-# Rendering only; no effect on collection or personal preferences.
+# Static website generator
 generator:
   engine: zensical
   strict: true
-  native_search: true
+  native_search: false
+  incremental: false
 
-# Compact board milestones and vendor signals, separate from 72-hour full news.
+# Historical hardware intelligence
 history_days: 90
-history_batch: 250  # older commits per run; 0 = full backfill
-# Explicit LTS release series (quoted strings); check upstream EOL policy.
-lts_series: ['1.14', '2.7', '3.7']
+history_batch: 250
+
+# Track only the latest stable release
+# Optional: latest_and_lts
+release_tracking: latest
+lts_series: []
+
+# Release lifecycle information
 release_policy:
   checked: '2026-11-26'
   series:
@@ -24,17 +30,22 @@ release_policy:
     '3.7': {status: 'Active LTS at policy snapshot', eol: '2029-07-27'}
     '2.7': {status: 'End of life (historical LTS)', eol: '2025-01-26'}
     '1.14': {status: 'End of life (historical LTS)', eol: '2022-01-01'}
-# Public open PRs; optional GITHUB_TOKEN in server environment.
+
+# Upcoming hardware-related pull requests
 pull_requests:
   enabled: true
   pages: 2
+
+# Default watchlist
 watchlist:
   boards:
     - '*mcxn*'
-    - ra8P1
+    - '*ra8p1*'
   vendors: []
   peripherals: []
-# Initial visitor preferences. Browser settings override these, including empty lists.
+
+# Initial visitor preferences
+# Browser localStorage overrides these settings
 preferences:
   requirements: [ethernet, can-fd, usb, crypto]
   selected: []

@@ -30,17 +30,17 @@
     const boards=new Map(array(data.boards).map(b=>[b.id,b]));const result=[];
     for(const t of array(data.comparison?.targets)){
       const b=boards.get(t.board_id);const fs=[...new Set([...array(t.metadata?.features),...array(t.metadata?.source_features)])];
-      result.push({kind:'target',title:t.target,detail:`${t.name||t.board} · ${t.vendor_name||t.vendor} · ${t.metadata?fs.join(', ')||'No positive capability evidence':'No exact target metadata'}`,url:t.url,compare:'compare.html?board='+encodeURIComponent(t.board_id),date:null,vendors:[t.vendor,t.vendor_name].filter(Boolean),features:fs,boardFields:[t.board,t.name,t.target,...array(t.socs),...fields(b)],terms:[t.id,t.target,t.board,t.name,t.metadata?.path,...array(t.socs),...fs,...fields(b)],release:array(t.releases).filter(r=>r.found).map(r=>r.tag).join(', '),confidence:t.metadata?'YAML / DTS source evidence':'Unknown metadata'});
+      result.push({kind:'target',title:t.target,detail:`${t.name||t.board} · ${t.vendor_name||t.vendor} · ${t.metadata?fs.join(', ')||'No positive capability evidence':'No exact target metadata'}`,url:t.url,compare:'compare.html?board='+encodeURIComponent(t.board_id)+'&target='+encodeURIComponent(t.target),date:null,vendors:[t.vendor,t.vendor_name].filter(Boolean),features:fs,boardFields:[t.board,t.name,t.target,...array(t.socs),...fields(b)],terms:[t.id,t.target,t.board,t.name,t.metadata?.path,...array(t.socs),...fs,...fields(b)],release:array(t.releases).filter(r=>r.found).map(r=>r.tag).join(', '),confidence:t.metadata?'YAML / DTS source evidence':'Unknown metadata'});
     }
     for(const e of array(data.events)){
       const associated=array(e.boards).map(id=>boards.get(id)).filter(Boolean);const text=[e.subject,e.detail,e.path,e.commit_subject,e.sha];
-      result.push({kind:e.kind,title:e.subject,detail:e.detail,url:upstream+'/commit/'+e.sha,date:e.committed?.slice(0,10),vendors:[...new Set(associated.flatMap(vendors))],features:[],boardFields:[...text,...associated.flatMap(fields)],terms:[...text,...associated.flatMap(fields)],release:e.release?.first_release|| (e.release?.status==='main_only'?'Main only (exact commit)':''),confidence:e.confidence||'',source:e.path?upstream+'/blob/'+e.sha+'/'+e.path.split('/').map(encodeURIComponent).join('/'):null});
+      result.push({kind:e.kind,title:e.subject,detail:e.detail,url:upstream+'/commit/'+e.sha,date:e.committed?.slice(0,10),vendors:[...new Set(associated.flatMap(vendors))],features:[],boardFields:[...text,...associated.flatMap(fields)],terms:[...text,...associated.flatMap(fields)],release:e.release?.first_release|| (e.release?.status==='main_only'?'Not in tracked releases (exact commit)':''),confidence:e.confidence||'',source:e.path?upstream+'/blob/'+e.sha+'/'+e.path.split('/').map(encodeURIComponent).join('/'):null});
     }
     for(const p of array(data.pull_requests?.items)){
       result.push({kind:'pr',title:`#${p.number} — ${p.title}`,detail:array(p.labels).join(', '),url:upstream+'/pull/'+p.number,date:p.updated?.slice(0,10),vendors:[],features:[],boardFields:[p.title,...array(p.labels)],terms:[p.title,String(p.number),...array(p.labels)],release:'Not merged',confidence:(p.draft?'Draft PR':'Open PR')+(data.pull_requests.status==='stale'?' · stale snapshot':'')});
     }
-    for(const v of array(data.vendors)) result.push({kind:'vendor',title:v.vendor,detail:`${v.commits} attributed hardware commits in retained history`,url:'vendors.html',date:v.last?.slice(0,10),vendors:[v.vendor],features:[],boardFields:[],terms:[v.vendor],release:'',confidence:'Activity signal'});
-    for(const r of array(data.releases))result.push({kind:'release',title:r.tag,detail:`${r.series||''}${r.lts?' · Configured LTS':''}`,url:'releases.html',date:null,vendors:[],features:[],boardFields:[],terms:[r.tag,r.series,r.lts?'lts':'stable'],release:r.tag,confidence:'Git tag'});
+    for(const v of array(data.vendors)) result.push({kind:'vendor',title:v.vendor,detail:`${v.commits} attributed hardware commits in retained history`,url:'vendors.html?vendor='+encodeURIComponent(v.vendor),date:v.last?.slice(0,10),vendors:[v.vendor],features:[],boardFields:[],terms:[v.vendor],release:'',confidence:'Activity signal'});
+    for(const r of array(data.releases))result.push({kind:'release',title:r.tag,detail:`${r.series||''}${r.lts?' · Configured LTS':''}`,url:upstream+'/releases/tag/'+encodeURIComponent(r.tag),date:null,vendors:[],features:[],boardFields:[],terms:[r.tag,r.series,r.lts?'lts':'stable'],release:r.tag,confidence:'Git tag'});
     return result;
   }
   function watched(r,prefs){return any(r.boardFields,array(prefs.boards))||any([...r.vendors,...(r.kind==='target'?[]:r.terms)],array(prefs.vendors))||any([...r.features,...r.terms],array(prefs.peripherals));}
@@ -59,7 +59,7 @@
   }
   const api={pattern,records,filter,watched};
   if(typeof module!=='undefined'&&module.exports){module.exports=api;return;}
-  const P=global.PulsePreferences;const {node,link,button}=P;
+  global.PulseHardwareSearch=api;const P=global.PulsePreferences;const {node,link,button}=P;
   const kinds={all:'All results',target:'Exact board targets',board_feature:'Board capability changes',board_candidate:'Possible board support',board:'New boards',sensor:'Sensors',driver:'Drivers',soc:'SoCs',dts:'Devicetree',docs:'Documentation',other:'Other changes',pr:'Upcoming PRs',vendor:'Vendor activity',release:'Release tags'};
   async function main(){const el=document.getElementById('pulse-hardware-search');if(!el)return;
     try{const {data,store}=await P.load();const all=records(data);let page=0,timer;const linkedSubject=new URLSearchParams(location.search).get('subject');let temporary=!!linkedSubject;const controls={};const form=node('form');form.className='pulse-filter';form.addEventListener('submit',e=>e.preventDefault());

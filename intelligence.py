@@ -232,21 +232,53 @@ def release_tags(repo, lts_lines):
     for line in repo.git('for-each-ref','--format=%(refname:short)%09%(creatordate:iso-strict)%09%(objectname)','refs/tags').splitlines():
         tag,date,obj=line.split('\t'); m=re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)',tag)
         if not m: continue
-        version=tuple(map(int,m.groups())); series=f'{version[0]}.{version[1]}'
+        version=tuple(map(int,m.groups()))
+        if version[2] == 99: continue  # Zephyr development marker, not a release.
+        series=f'{version[0]}.{version[1]}'
         tags.append({'tag':tag,'date':date,'object':obj,'version':version,'series':series,'lts':series in lts_lines})
     return sorted(tags,key=lambda x:x['version'])
+
+
+def tracked_releases(repo, cfg):
+    """Select only the latest final release, optionally one tag per explicit LTS series."""
+    mode = cfg.get('release_tracking', 'latest')
+    if mode not in ('latest', 'latest_and_lts'):
+        raise ValueError('release_tracking must be latest or latest_and_lts')
+    lts = {str(x) for x in cfg.get('lts_series', [])} if mode == 'latest_and_lts' else set()
+    tags = release_tags(repo, lts)
+    selected = {tags[-1]['tag']: tags[-1]} if tags else {}
+    for series in sorted(lts):
+        matches = [t for t in tags if t['series'] == series]
+        if matches:
+            selected[matches[-1]['tag']] = matches[-1]
+    result = sorted(selected.values(), key=lambda t: t['version'])
+    policy = cfg.get('release_policy', {})
+    scoped_policy = {**policy, 'series': {s:p for s,p in policy.get('series', {}).items()
+                                          if s in {t['series'] for t in result}}}
+    return result, scoped_policy
 
 
 def release_status(repo,db,tags,shas):
     fingerprint=hashlib.sha256(json.dumps(tags,sort_keys=True).encode()).hexdigest(); out={}
     unique=sorted(set(shas)); progress=Progress('Commit release checks',len(unique)); hits=0
+    cached_rows={sha:result for sha,result in db.execute('SELECT sha,result FROM release_cache WHERE fingerprint=?',(fingerprint,))}
+    pending=set(unique)-cached_rows.keys()
+    reachable=None
+    # One graph walk rejects all commits unreachable from ANY stable tag. Most recent
+    # main commits are in this category; only positive candidates require per-commit tag checks.
+    if tags and len(pending)>=8:
+        try:
+            reachable=pending.intersection(repo.git('rev-list',*['refs/tags/'+t['tag'] for t in tags],'--').splitlines())
+            logging.info('Release batch: %d of %d uncached commits reachable from any stable tag',len(reachable),len(pending))
+        except RuntimeError:
+            logging.warning('Release batch unavailable; using exact per-commit checks')
     for i,sha in enumerate(unique,1):
         progress.item(i,sha[:12])
-        cached=db.execute('SELECT result FROM release_cache WHERE sha=? AND fingerprint=?',(sha,fingerprint)).fetchone()
-        if cached:
-            out[sha]=json.loads(cached[0]); hits+=1; progress.done(i); continue
+        cached=cached_rows.get(sha)
+        if cached is not None:
+            out[sha]=json.loads(cached); hits+=1; progress.done(i); continue
         # A tag containing the exact commit is evidence of inclusion, not feature availability after reverts/backports.
-        contained=set(repo.git('tag','--contains',sha,'--list','v*').splitlines()) if tags else set()
+        contained=set(repo.git('tag','--contains',sha,'--list',*[t['tag'] for t in tags]).splitlines()) if tags and (reachable is None or sha in reachable) else set()
         stable=[t for t in tags if t['tag'] in contained]; lts=[t for t in stable if t['lts']]
         result={'first_release':stable[0]['tag'] if stable else None,'latest_release':stable[-1]['tag'] if stable else None,
                 'lts_tags':[t['tag'] for t in lts], 'status':'tagged' if stable else ('main_only' if tags else 'unknown')}
@@ -307,8 +339,8 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         history[r['board']].append(dict(r))
     def release_text(s):
         if s.get('first_release'):
-            lts=s.get('lts_tags',[]); return f"Commit in {s['first_release']} · latest containing tag {s['latest_release']}" + (f" · LTS-tagged: {', '.join(lts)}" if lts else '')
-        return 'Main only — exact commit not in scanned stable tags' if s.get('status')=='main_only' else 'Release inclusion unknown'
+            lts=s.get('lts_tags',[]); return f"Commit in {s['first_release']} · latest tracked containing tag {s['latest_release']}" + (f" · LTS-tagged: {', '.join(lts)}" if lts else '')
+        return 'Not in tracked releases — exact commit' if s.get('status')=='main_only' else 'Release inclusion unknown'
     def commit_link(sha): return f'[{sha[:10]}]({UPSTREAM}/commit/{sha})'
     def source_link(sha,path): return f'[source]({UPSTREAM}/blob/{sha}/{quote(path,safe="/")})'
     def save(name,lines):
@@ -371,15 +403,15 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     for r in db.execute('SELECT a.*,h.committed FROM vendor_activity a JOIN history_seen h USING(sha)'):
         v=vendor_rows[r['vendor']]; v['counts'][r['signal']]+=1; v['authors'].add(r['author']); v['commits'].add(r['sha']); v['last']=max(v['last'],r['committed']); v['activity_days'][r['committed'][:10]].add(r['sha'])
     vendors=[]
-    vendor_lines=['# Vendor activity','',stamp,cov,'','Counts are distinct commit/vendor/signal combinations, not devices shipped. Vendor refers to the affected hardware namespace, **not the contributor’s employer**. Fixes are title signals; test changes are source changes, not coverage or pass rates.','','| Vendor | Hardware commits | New-board signals | Capability signals | Driver / sensor introduction signals | Driver changes | Fix signals | Test-source signals | Distinct Git authors | Latest activity |','|---|---:|---:|---:|---:|---:|---:|---:|---:|---|']
+    vendor_lines=['# Vendor activity','',stamp,cov,'','Counts are distinct commit/vendor/signal combinations, not devices shipped. Vendor refers to the affected hardware namespace, **not the contributor’s employer**. Fixes are title signals; test changes are source changes, not coverage or pass rates.','','<div id="pulse-vendor-filter"></div>','','| Vendor | Hardware commits | New-board signals | Capability signals | Driver / sensor introduction signals | Driver changes | Fix signals | Test-source signals | Distinct Git authors | Latest activity |','|---|---:|---:|---:|---:|---:|---:|---:|---:|---|']
     for name,v in sorted(vendor_rows.items(),key=lambda x:(-len(x[1]['commits']),x[0])):
         c=v['counts']; count=len(v['commits']); d={'vendor':name,'commits':count,'counts':dict(c),'authors':len(v['authors']),'last':v['last'],'daily':{day:len(shas) for day,shas in sorted(v['activity_days'].items())}}; vendors.append(d)
         vendor_lines.append(f"| [{md(name)}](boards.html?vendor={quote(name,safe='')}) | {count} | {c['board']} | {c['board_feature']} | {c['driver']+c['sensor']} | {c['driver_changes']} | {c['fix_signals']} | {c['test_source_changes']} | {d['authors']} | {v['last'][:10]} |")
     vendor_lines += ['','## Activity trends','','<div id="pulse-vendor-trends"></div>','','Missing days during backfill are not evidence of inactivity. Vendors absent from this table have no attributed signals in the processed history.']
     save('vendors.md',vendor_lines)
-    release_lines=['# Release and LTS tracking','',stamp,'Stable tags are fetched from upstream Git. Pre-release tags are excluded. Inclusion means the exact main commit is reachable from a tag; cherry-picked backports and later reversions are not detected. It does not certify hardware operation.','','[Official release support / EOL policy](https://docs.zephyrproject.org/latest/releases/index.html) · LTS series are configured in `config.yml`; verify their current support dates upstream.','','## Stable release tags','', '| Tag | Tag creator date | Configured LTS series |','|---|---|---|']
+    release_lines=['# Release and LTS tracking','',stamp,'Only the latest stable release is tracked by default; optional configured LTS series contribute their latest final tag. Development .99 and release-candidate tags are excluded. Inclusion means the exact main commit is reachable from a tag; cherry-picked backports and later reversions are not detected. It does not certify hardware operation.','','[Official release support / EOL policy](https://docs.zephyrproject.org/latest/releases/index.html) · LTS series are configured in `config.yml`; verify their current support dates upstream.','','## Tracked release tags','', '| Tag | Tag creator date | Configured LTS series |','|---|---|---|']
     for t in reversed(tags): release_lines.append(f"| [{t['tag']}]({UPSTREAM}/releases/tag/{t['tag']}) | {md(t['date'][:10])} | {'Yes' if t['lts'] else '—'} |")
-    if not tags: release_lines += ['| — | No stable tags fetched | — |']
+    if not tags: release_lines += ['| — | No eligible stable tags found | — |']
     release_lines += ['','## Configured support lifecycle','','Policy snapshot: '+md(policy.get('checked','not configured'))+'. Update this configuration from the official release page; the Git tags refresh automatically.','','| Series | Policy status | End of life |','|---|---|---|']
     for series,p in policy.get('series',{}).items():
         eol=str(p.get('eol','')); status=str(p.get('status','unknown'))

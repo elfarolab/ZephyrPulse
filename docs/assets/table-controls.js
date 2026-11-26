@@ -1,0 +1,17 @@
+/* Shared, generator-independent table sorting and contextual filters. */
+((global)=>{'use strict';
+const fold=v=>String(v??'').trim().toLowerCase();
+const collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
+function compare(a,b){a=String(a??'').trim();b=String(b??'').trim();const number=/^[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?%?$/;if(number.test(a)&&number.test(b))return Number(a.replace(/[, %]/g,''))-Number(b.replace(/[, %]/g,''));return collator.compare(a,b);}
+function sortRows(rows,key,dir=1){return rows.map((row,i)=>({row,i,key:key(row)})).sort((a,b)=>{const missing=v=>v==null||/^(?:\s*|—|not declared|unknown|no exact metadata)$/i.test(String(v));const am=missing(a.key),bm=missing(b.key);return (am!==bm?(am?1:-1):dir*compare(a.key,b.key))||a.i-b.i;}).map(x=>x.row);}
+function exact(value,term){return fold(value)===fold(term);}
+function headers(table,callback,{skip=[],current=null}={}){const cells=[...(table.tHead?.rows[0]?.cells||[])];const buttons=[];function show(index,dir){for(const [i,th,b,mark] of buttons){if(i===index){th.setAttribute('aria-sort',dir===1?'ascending':'descending');mark.textContent=dir===1?' ↑':' ↓';}else{th.removeAttribute('aria-sort');mark.textContent=' ↕';}}}let state=current;cells.forEach((th,i)=>{if(skip.includes(i)||th.colSpan!==1)return;const b=document.createElement('button');b.type='button';b.className='pulse-sort-header';const mark=document.createElement('span');mark.className='pulse-sort-mark';mark.setAttribute('aria-hidden','true');const title=th.textContent.trim();b.textContent=title;b.title='Sort by '+title;b.append(mark);if(th.querySelector('a')){ // Preserve the board profile link in matrix headings.
+ b.replaceChildren(document.createTextNode('Sort'),mark);b.setAttribute('aria-label','Sort by '+title);th.append(' ',b);
+}else th.replaceChildren(b);buttons.push([i,th,b,mark]);b.onclick=()=>{const dir=state?.index===i?-state.dir:1;state={index:i,dir};show(i,dir);callback(i,dir);};});show(state?.index,state?.dir);return {show:(index,dir)=>{state=index==null?null:{index,dir};show(index,dir);}};}
+function staticTable(t){if(t.dataset.pulseSortReady||t.closest('.pulse-news-table')||t.dataset.pulseManaged||!t.tHead||!t.tBodies.length||t.tHead.rows.length!==1)return;t.dataset.pulseSortReady='true';const skip=[...t.tHead.rows[0].cells].flatMap((th,i)=>/^(action|details)$/i.test(th.textContent.trim())?[i]:[]);headers(t,(i,dir)=>{for(const body of t.tBodies){const rows=[...body.rows];if(rows.some(r=>r.cells.length!==t.tHead.rows[0].cells.length))continue;for(const row of sortRows(rows,r=>r.cells[i]?.dataset.sortValue??r.cells[i]?.textContent,dir))body.append(row);}}, {skip});}
+function scan(root){if(root.nodeType!==1&&root.nodeType!==9)return;if(root.matches?.('table'))staticTable(root);root.querySelectorAll?.('table').forEach(staticTable);}
+function updateParam(key,value){if(!/^https?:$/.test(location.protocol))return;const u=new URL(location.href);if(value)u.searchParams.set(key,value);else u.searchParams.delete(key);history.replaceState(null,'',u);}
+const api={compare,sortRows,exact,headers,updateParam};if(typeof module!=='undefined'&&module.exports){module.exports=api;return;}global.PulseTables=api;
+function start(){scan(document);new MutationObserver(records=>{for(const r of records)for(const n of r.addedNodes)scan(n);}).observe(document.body,{childList:true,subtree:true});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})(typeof window==='undefined'?globalThis:window);
