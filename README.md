@@ -1,3 +1,5 @@
+![Screenshot description](images/screenshot.png)
+
 # Zephyr Pulse
 
 **Hardware news and hardware selection intelligence for Zephyr RTOS.**
