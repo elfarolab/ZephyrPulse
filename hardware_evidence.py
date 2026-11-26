@@ -8,6 +8,7 @@ from collections import defaultdict
 from pathlib import PurePosixPath
 import posixpath
 import re
+from performance import digest, trees
 
 INCLUDE = re.compile(r'^\s*(?:#\s*include|/include/)\s*(["<])([^">]+)[">]', re.M)
 COMMENTS = re.compile(r'/\*.*?\*/|//[^\n]*', re.S)
@@ -23,9 +24,13 @@ FAMILIES = {'adc':'adc','dac':'dac','can':'can','crypto':'crypto','dma':'dma',
             'comparator':'comparator','i3c':'i3c','crc':'crc','opamp':'opamp','video':'video','edac':'edac','mbox':'mailbox','pdm':'pdm'}
 
 class EvidenceIndex:
-    def __init__(self, repo, ref):
+    def __init__(self, repo, ref, previous=None, object_ids=None):
         from intelligence import blobs
-        paths = repo.git('ls-tree','-r','--name-only',ref,'--','boards','dts','soc','include').splitlines()
+        self.ids = object_ids if object_ids is not None else trees(repo, ref, ['boards','dts','soc','include','drivers'])
+        self.previous = previous or {}
+        self.results = {}
+        self.hits = self.misses = 0
+        paths = sorted(p for p in self.ids if p.startswith(('boards/','dts/','soc/','include/')))
         selected = [p for p in paths if p.endswith(('.dts','.dtsi')) or (p.startswith('dts/bindings/') and p.endswith(('.yaml','.yml')))]
         self.data = blobs(repo, ref, selected)
         self.cache = {}
@@ -59,6 +64,19 @@ class EvidenceIndex:
             text=COMMENTS.sub('',self.data[path]); self.cache[path]=(INCLUDE.findall(text),nodes(text))
         return self.cache[path]
 
+    def dependency_fingerprint(self, deps, includes, compats, arch):
+        # Includes which used to be unresolved can become resolvable, or a
+        # higher-priority include may appear. Recheck resolution, not just files.
+        resolved = [(p, style, name, self.resolve(p, style, name, arch))
+                    for p, style, name in includes]
+        if any(child is not None and child not in deps for _,_,_,child in resolved):
+            return None
+        linked = {p for c in compats for p in self.bindings.get(c, [])}
+        linked.update(p for c in compats for p in self.drivers.get(re.sub(r'[^A-Za-z0-9_]','_',c).lower(), ()))
+        return digest([[(p, self.ids.get(p)) for p in sorted(deps)], resolved,
+                       [(p, self.ids.get(p)) for p in sorted(linked)],
+                       [(c, sorted(self.bindings.get(c, [])), sorted(self.drivers.get(re.sub(r'[^A-Za-z0-9_]','_',c).lower(), ()))) for c in sorted(compats)]])
+
     def target(self, folder, target, arch, metadata_path):
         # Exact target convention. Legacy same-stem YAML is allowed only if its
         # identifier was already matched by caller (not if a sibling exists).
@@ -67,22 +85,31 @@ class EvidenceIndex:
         legacy=str(PurePosixPath(metadata_path).with_suffix('.dts'))
         entry=exact if exact in self.data else legacy if legacy in self.data else None
         if not entry: return {'entry':None,'nodes':[],'features':[],'present_features':[]}
+        key = digest([folder,target,arch,metadata_path,entry])
+        old = self.previous.get(key)
+        if old and old['fingerprint'] == self.dependency_fingerprint(old['deps'], old['includes'], old['compats'], arch):
+            self.results[key] = old
+            self.hits += 1
+            return old['result']
+        self.misses += 1
         records=defaultdict(lambda:{'compatible':{},'status':{}})
-        visited=set()
+        visited=set(); include_refs=[]
         def visit(p):
             if p in visited: return
             visited.add(p)
             includes, props=self.parsed(p)
             for style,name in includes:
+                include_refs.append((p,style,name))
                 child=self.resolve(p,style,name,arch)
                 if child: visit(child)
             for label,values in props.items():
                 for field in ('compatible','status'):
                     if field in values: records[label][field][p]=values[field]
         visit(entry)
-        evidence=[]; features=set(); present=set()
+        evidence=[]; features=set(); present=set(); all_compats=set()
         for label,rec in records.items():
             compats={v for vs in rec['compatible'].values() for v in vs}
+            all_compats.update(compats)
             statuses={v for vs in rec['status'].values() for v in vs}
             # Use the last scanned literal (includes before including file).
             # Missing status defaults to okay in DTS, but this remains a hint
@@ -104,4 +131,7 @@ class EvidenceIndex:
                     'compatible_paths':sorted(p for p,vs in rec['compatible'].items() if compat in vs),
                     'status_paths':list(rec['status']), 'binding_paths':sorted(bindings),
                     'driver_paths':sorted({p for c in compats for p in self.drivers.get(re.sub(r'[^A-Za-z0-9_]','_',c).lower(),())})})
-        return {'entry':entry,'nodes':evidence,'features':sorted(features),'present_features':sorted(present)}
+        fp=self.dependency_fingerprint(visited,include_refs,all_compats,arch)
+        result={'entry':entry,'nodes':evidence,'features':sorted(features),'present_features':sorted(present),'input_fingerprint':fp}
+        self.results[key]={'deps':sorted(visited),'includes':include_refs,'compats':sorted(all_compats),'fingerprint':fp,'result':result}
+        return result

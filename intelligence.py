@@ -65,7 +65,38 @@ def blobs(repo, sha, paths):
     return result
 
 
-def inventory(repo, head):
+def inventory(repo, head, db=None):
+    from performance import roots, trees, load, save, digest
+    relevant=['boards','dts','soc','include','drivers']
+    fingerprint=digest(roots(repo,head,relevant))
+    previous=load(db,'inventory') or {}
+    prior_head=previous.get('head')
+    # Never retain an evidence anchor from an abandoned branch after a rewrite.
+    if prior_head and prior_head!=head and repo.git('merge-base',prior_head,head,allow=(0,1,128)).strip()!=prior_head:
+        logging.info('Inventory cache: upstream history rewritten; refreshing evidence anchors')
+        previous={}
+    if previous.get('fingerprint')==fingerprint:
+        boards=previous['boards']
+        logging.info('Inventory cache: full hit (%d boards; hardware trees unchanged)',len(boards))
+        if prior_head!=head: save(db,'inventory',{**previous,'head':head})
+        return boards
+    ids=trees(repo,head,relevant)
+    boards, targets=_inventory(repo,head,ids,previous.get('targets',{}))
+    old_boards=previous.get('boards',{})
+    reused=0
+    for key,b in boards.items():
+        signature=digest([ids.get(b['folder']), b])
+        old=old_boards.get(key,{})
+        unchanged=old.get('evidence_fingerprint')==signature
+        b['evidence_revision']=old['evidence_revision'] if unchanged else head
+        b['evidence_fingerprint']=signature
+        reused+=int(unchanged)
+    logging.info('Inventory evidence anchors: %d unchanged, %d refreshed',reused,len(boards)-reused)
+    save(db,'inventory',{'head':head,'fingerprint':fingerprint,'boards':boards,'targets':targets})
+    return boards
+
+
+def _inventory(repo, head, ids, previous_targets):
     from pulse import board_defs, yload, supported, nodes, variants
     paths=repo.git('ls-tree','-r','--name-only',head,'--','boards').splitlines()
     pathset=set(paths)
@@ -83,7 +114,7 @@ def inventory(repo, head):
             k,v=line.split('\t',1); prefixes[k.strip()]=v.strip()
     from hardware_evidence import EvidenceIndex
     with stage("Index revision-pinned devicetree sources"):
-        evidence_index=EvidenceIndex(repo,head)
+        evidence_index=EvidenceIndex(repo,head,previous_targets,ids)
     boards={}
     progress=Progress('Board definitions',len(definitions))
     for i,path in enumerate(definitions,1):
@@ -109,7 +140,8 @@ def inventory(repo, head):
                 'doc_source': next((p for p in (folder+'/doc/'+name+'.rst',folder+'/doc/index.rst') if p in pathset and (p.endswith('/'+name+'.rst') or len(board_defs(data[path]))==1)),None),
                 'socs':socs,'targets':sorted(set(meta)|{t for t in variants({name:b}) if not any(x.startswith(t+'/') for x in meta)}),'metadata':meta,'raw':raw,'source':path}
         progress.done(i)
-    return boards
+    logging.info('Target evidence cache: %d hits, %d computed',evidence_index.hits,evidence_index.misses)
+    return boards,evidence_index.results
 
 
 def board_ids(event, boards, index=None):
@@ -260,7 +292,10 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     from pulse import md, UPSTREAM, CATEGORIES, write_rss
     from html import escape
     docs.mkdir(parents=True,exist_ok=True); directory=docs/'boards'; directory.mkdir(exist_ok=True)
-    for p in directory.glob('*.md'): p.unlink()
+    expected_pages={b['slug']+'.md' for b in boards.values()}
+    for p in directory.glob('*.md'):
+        if p.name not in expected_pages: p.unlink()
+    page_counts=Counter()
     stamp=f'Updated **{now:%Y-%m-%d %H:%M UTC}** · main snapshot `{head[:12]}`.\n\n'
     cov=f"History: **{coverage['processed']} / {coverage['total']}** first-parent commits processed in the last {coverage['days']} days. {'Complete.' if coverage['complete'] else 'Backfill in progress; counts are incomplete.'}"
     idx=folder_index(boards)
@@ -268,7 +303,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     for r in rows:
         r['boards']=board_ids(r,boards,idx); r['release']=statuses.get(r['sha'],{}); r['watched']=watch_match(r,boards,watch)
     history=defaultdict(list)
-    for r in db.execute('SELECT m.*,h.committed FROM milestones m JOIN history_seen h USING(sha) ORDER BY h.committed DESC,sha,kind,label'):
+    for r in db.execute('SELECT m.*,h.committed FROM milestones m JOIN history_seen h USING(sha) ORDER BY h.committed DESC,sha,kind,label,path'):
         history[r['board']].append(dict(r))
     def release_text(s):
         if s.get('first_release'):
@@ -276,7 +311,12 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         return 'Main only — exact commit not in scanned stable tags' if s.get('status')=='main_only' else 'Release inclusion unknown'
     def commit_link(sha): return f'[{sha[:10]}]({UPSTREAM}/commit/{sha})'
     def source_link(sha,path): return f'[source]({UPSTREAM}/blob/{sha}/{quote(path,safe="/")})'
-    def save(name,lines): (docs/name).write_text('---\nhide:\n  - toc\n---\n\n'+'\n'.join(lines)+'\n',encoding='utf-8')
+    def save(name,lines):
+        path=docs/name
+        content=('---\nhide:\n  - toc\n---\n\n'+'\n'.join(lines)+'\n').encode('utf-8')
+        same=path.is_file() and path.read_bytes()==content
+        if not same: path.write_bytes(content)
+        if name.startswith('boards/'): page_counts['unchanged' if same else 'changed']+=1
     catalog=['# Board explorer','',stamp,cov,'','All discovered `board.yml` definitions, not only watched boards. The browser filter changes only this list. [Compare hardware targets](compare.md).' ,'', '<div id="pulse-board-filter"></div>','', '| Board | Vendor | SoCs | Last detected milestone |','|---|---|---|---|']
     board_data=[]
     progress=Progress('Board pages',len(boards))
@@ -285,14 +325,16 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         timeline=history[key]; last=timeline[0]['committed'][:10] if timeline else '—'
         catalog.append(f"| [{md(b['name'])}](boards/{b['slug']}.md) | {md(b['vendor_name'])} | {md(', '.join(b['socs']))} | {last} |")
         item={k:v for k,v in b.items() if k not in ('raw','metadata')}; item.update(last_activity=last,url='boards/'+b['slug']+'.html'); board_data.append(item)
-        lines=[f"# {md(b['full_name'])}",'',stamp,f"**Board:** `{md(b['name'])}` · **Vendor:** {md(b['vendor_name'])} · **SoCs:** {md(', '.join(b['socs']) or 'Not declared')}",'',f"[Board source]({UPSTREAM}/tree/{head}/{quote(b['folder'],safe='/')}) · {source_link(head,b['source'])}",'',f'[Compare hardware](../compare.md) · <a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','', '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
+        revision=b.get('evidence_revision',head)
+        board_stamp=f'Hardware evidence snapshot: [`{revision[:12]}`]({UPSTREAM}/commit/{revision}). See [Board explorer](../boards.md) for latest collection time.'
+        lines=[f"# {md(b['full_name'])}",'',board_stamp,f"**Board:** `{md(b['name'])}` · **Vendor:** {md(b['vendor_name'])} · **SoCs:** {md(', '.join(b['socs']) or 'Not declared')}",'',f"[Board source]({UPSTREAM}/tree/{revision}/{quote(b['folder'],safe='/')}) · {source_link(revision,b['source'])}",'',f'[Compare hardware](../compare.md) · <a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','', '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
         if b.get('doc_source'):
-            doc=b['doc_source']; lines[lines.index('## Target capability matrix'):lines.index('## Target capability matrix')]=[f'[Official board documentation (latest; may differ from this snapshot)](https://docs.zephyrproject.org/latest/{quote(doc[:-4],safe="/")}.html) · {source_link(head,doc)}','']
+            doc=b['doc_source']; lines[lines.index('## Target capability matrix'):lines.index('## Target capability matrix')]=[f'[Official board documentation (latest; may differ from this snapshot)](https://docs.zephyrproject.org/latest/{quote(doc[:-4],safe="/")}.html) · {source_link(revision,doc)}','']
         for target in sorted(set(b['targets'])|set(b['metadata'])):
             meta=b['metadata'].get(target); lines += [f'### {md(target)}','']
             if not meta: lines += ['_No exact target YAML metadata found._','']; continue
             features={canonical(f) for f in meta['features']}
-            lines += [f"Architecture: {md(meta['arch'] or 'not declared')} · RAM: {md(meta['ram'] if meta['ram'] is not None else 'not declared')} · Flash: {md(meta['flash'] if meta['flash'] is not None else 'not declared')} (upstream metadata, normally KiB). {source_link(head,meta['path'])}",'','| Peripheral / feature | Evidence | Compatible / source |','|---|---|---|']
+            lines += [f"Architecture: {md(meta['arch'] or 'not declared')} · RAM: {md(meta['ram'] if meta['ram'] is not None else 'not declared')} · Flash: {md(meta['flash'] if meta['flash'] is not None else 'not declared')} (upstream metadata, normally KiB). {source_link(revision,meta['path'])}",'','| Peripheral / feature | Evidence | Compatible / source |','|---|---|---|']
             ev=meta.get('dts_evidence',{}); hints=set(ev.get('features',[])); present=set(ev.get('present_features',[]))
             for f in sorted(features|hints|present):
                 evidence=('Declared (YAML)' if f in features else 'DTS source hint' if f in hints else 'Present in DTS; no okay hint')
@@ -300,28 +342,29 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
                 by_compat={}
                 for n in matches:
                     by_compat.setdefault(n['compatible'],n['binding_paths'][0] if n['binding_paths'] else n['compatible_paths'][0])
-                refs=' · '.join(f'[{md(c)}]({UPSTREAM}/blob/{head}/{quote(p,safe="/")})' for c,p in sorted(by_compat.items()))
+                refs=' · '.join(f'[{md(c)}]({UPSTREAM}/blob/{revision}/{quote(p,safe="/")})' for c,p in sorted(by_compat.items()))
                 lines.append(f"| {md(f)} | {evidence} | {refs or '—'} |")
             if not features and not hints and not present: lines.append('| — | No evidence | — |')
             lines += ['', 'A missing row means no evidence was collected, not that the hardware is unsupported. Inspect source details for instance status and matching driver references.', '']
             if ev.get('entry'):
-                lines += [f"Exact-target DTS: {source_link(head,ev['entry'])}", '', '<details class="pulse-evidence"><summary>Inspect compatible strings, instances, bindings and source history</summary>', '<div class="pulse-matrix"><table><thead><tr><th>Peripheral</th><th>Compatible / node</th><th>Source status hint</th><th>Evidence</th></tr></thead><tbody>']
+                lines += [f"Exact-target DTS: {source_link(revision,ev['entry'])}", '', '<details class="pulse-evidence"><summary>Inspect compatible strings, instances, bindings and source history</summary>', '<div class="pulse-matrix"><table><thead><tr><th>Peripheral</th><th>Compatible / node</th><th>Source status hint</th><th>Evidence</th></tr></thead><tbody>']
                 for node in ev['nodes']:
                     paths=sorted(set(node['compatible_paths']+node['status_paths']+node['binding_paths']+node.get('driver_paths',[])))
-                    refs='<br>'.join(f'<a href="{UPSTREAM}/blob/{head}/{quote(p,safe="/")}">{escape(PurePosixPath(p).name)}</a> · <a href="{UPSTREAM}/commits/{head}/{quote(p,safe="/")}">history</a>' for p in paths)
+                    refs='<br>'.join(f'<a href="{UPSTREAM}/blob/{revision}/{quote(p,safe="/")}">{escape(PurePosixPath(p).name)}</a> · <a href="{UPSTREAM}/commits/{revision}/{quote(p,safe="/")}">history</a>' for p in paths)
                     lines.append(f'<tr><td>{escape(", ".join(node["features"]))}</td><td><code>{escape(node["compatible"])}</code><br>{escape(node["node"])}</td><td>{escape(node["status"])} ({escape(", ".join(node["status_values"]) or "none")})</td><td>{refs}</td></tr>')
                 lines += ['</tbody></table></div></details>','']
             lines += ['']
         if not b['targets'] and not b['metadata']: lines += ['_No target metadata found._','']
-        lines += ['## Recent support timeline','',cov,'','| UTC date | Signal | Evidence | Release inclusion |','|---|---|---|---|']
+        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). [Global history coverage](../boards.md).",'','| UTC date | Signal | Evidence | Release inclusion |','|---|---|---|---|']
         for m in timeline:
             lines.append(f"| {m['committed'][:10]} | {md(m['label'])} ({md(m['confidence'])}) | {commit_link(m['sha'])} · {source_link(m['sha'],m['path'])} | {md(release_text(statuses.get(m['sha'],{})))} |")
         if not timeline: lines += ['| — | No retained milestone | — | — |']
         lines += ['','## Raw board-folder devicetree evidence','','These file-local declarations may apply to different variants or boards sharing the folder. Includes, overlays and Kconfig are not resolved.','','| File | Node | Explicit status | Compatible |','|---|---|---|---|']
-        for r in b['raw']: lines.append(f"| {source_link(head,r['path'])} ({md(PurePosixPath(r['path']).name)}) | {md(r['node'])} | {md(r['status'] or 'not explicit')} | {md(r['compatible'] or '—')} |")
+        for r in b['raw']: lines.append(f"| {source_link(revision,r['path'])} ({md(PurePosixPath(r['path']).name)}) | {md(r['node'])} | {md(r['status'] or 'not explicit')} | {md(r['compatible'] or '—')} |")
         if not b['raw']: lines += ['| — | — | No local evidence | — |']
         save('boards/'+b['slug']+'.md',lines)
         progress.done(i)
+    logging.info('Board Markdown: %d changed/new, %d unchanged',page_counts['changed'],page_counts['unchanged'])
     save('boards.md',catalog)
     vendor_rows=defaultdict(lambda:{'counts':Counter(),'authors':set(),'commits':set(),'days':Counter(),'last':'','activity_days':defaultdict(set)})
     for r in db.execute('SELECT a.*,h.committed FROM vendor_activity a JOIN history_seen h USING(sha)'):

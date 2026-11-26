@@ -42,7 +42,17 @@ __pycache__/
 *.log
 *.zip
 
+# local scripts
+scripts/
+
 # IDE and OS
 .vscode/
 .idea/
 .DS_Store
+
+# Private Cloudflare deployment
+/publish-cloudflare-cron.local.sh
+/.env.cloudflare
+/cloudflare-publish.log
+/deploy/wrangler.toml
+/config.local.yml

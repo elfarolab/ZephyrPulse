@@ -34,6 +34,15 @@ jobs:
           test -f site/compare.html
           test -f site/settings.html
           test -f site/hardware-search.html
+      - name: Check real rendered board byte stability after unrelated changes
+        run: |
+          find site/boards -type f -name '*.html' -print0 | sort -z | xargs -0 sha256sum > /tmp/board-html.sha256
+          mkdir -p /tmp/pulse-fixture/doc
+          printf 'Unrelated documentation\n' > /tmp/pulse-fixture/doc/unrelated.rst
+          git -C /tmp/pulse-fixture add .
+          git -C /tmp/pulse-fixture commit -m 'unrelated documentation'
+          python pulse.py --config /tmp/pulse-config.yml --no-publish
+          sha256sum --check /tmp/board-html.sha256
       - name: Browser fixture smoke test
         run: |
           pip install playwright

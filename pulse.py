@@ -415,7 +415,7 @@ def main():
                 collect(db,repo,head,now,int(cfg.get('window_hours',72)))
             from intelligence import inventory, update_history, release_tags, release_status, get_prs, render_extra
             with stage('Build board inventory'):
-                boards=inventory(repo,head)
+                boards=inventory(repo,head,db)
                 logging.info('Inventory: %d boards',len(boards))
             with stage('Update historical intelligence'):
                 coverage=update_history(db,repo,head,now,boards,int(cfg.get('history_days',90)),0 if args.history_backfill else int(cfg.get('history_batch',250)))
@@ -426,7 +426,7 @@ def main():
                 statuses=release_status(repo,db,tags,shas)
             from comparison import release_snapshots
             with stage('Read release board snapshots'):
-                snapshots=release_snapshots(repo,tags,boards,cfg.get('release_policy',{}),now)
+                snapshots=release_snapshots(repo,tags,boards,cfg.get('release_policy',{}),now,db)
             with stage('Refresh upcoming pull requests'):
                 prs=get_prs(db,cfg,now)
                 logging.info('PR snapshot: %s; %d scanned, %d matched',prs['status'],prs.get('scanned',0),len(prs['items']))

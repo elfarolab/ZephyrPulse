@@ -1,3 +1,12 @@
+# v0.3.9 — Incremental hardware analysis and low-transfer publishing
+
+- Persist hardware inventory and exact-target dependency caches in SQLite. Skip the full inventory when the relevant Git trees are unchanged; otherwise reuse target evidence when its include graph, compatible bindings and matching driver inputs are unchanged. Recheck unresolved includes and invalidate on analysis code changes or upstream history rewrites.
+- Cache stable/LTS metadata and DTS evidence by Git tag object ID and target metadata path, including missing paths. Recompute release lifecycle labels on every run; discard cache entries for unselected tags.
+- Keep board-specific evidence revision anchors stable while relevant inputs are unchanged. Preserve exact immutable source links, and update board-specific timelines when milestones change or expire. Remove global timestamps and global backfill progress from board profiles; retain them on global pages.
+- Keep identical board Markdown files untouched, remove obsolete board pages, and report actual new/changed/unchanged/removed file counts for each validated HTML build. Keep the clean staged Zensical build and native search indexing for correctness; checksum-based publishing skips identical rendered files.
+- Direct R2 cron publisher can use rclone `--fast-list --checksum` with full transfer summaries; no changes to credentials, cron schedule or the public URLs. No new Python dependencies. Cache table is created automatically.
+- Added regression tests for unrelated commits, selective driver/binding/include invalidation, history rewrites, release retags, stable page output and removal of obsolete board pages. Real Zensical byte stability is checked in CI; live R2 transfer savings still require deployment measurement.
+
 # v0.3.8 — Dense expandable news and text-only header
 
 - Overview displays the full rolling news window in a single filterable table; category counts and shortcuts remain cards.
