@@ -1,3 +1,11 @@
+# v0.3.10 — Category navigation and lighter browser data
+
+- Overview lists every category with its complete 72-hour event count and newest timestamp. Expand for three recent events; clicking the category opens its full existing table. All category pages retain pagination, filtering, sorting and evidence expansion.
+- Click subject links to toggle exact, case-insensitive filters across all pages of the current news table. Category links navigate to the corresponding tab. Preview subjects open the complete category already filtered; expanded details include same-subject category links (when present) and related hardware search. Links to the board explorer, vendor trends and comparator carry board/SoC/vendor context. Temporary linked filters do not replace saved watchlists.
+- Compact `intelligence.json` schema version 2 retains feature states, exact targets, main/release metadata and references to separate immutable board-evidence JSON files. Full evidence loads only for selected comparator boards; board HTML retains its original source links. `data/news-view.json` supplies the homepage/watchlist and `data/preferences.json` supplies preferences and release choices. Unchanged evidence is not rewritten; the preceding catalog's evidence is retained for one additional build to assist cached clients.
+- Validate new views and digest-addressed evidence before replacing the local site. Keep the existing clean Zensical build, caches, R2 sync, cron and browser storage schema. No new runtime dependencies. Generated `docs/data/` is ignored; keep your private `config.local.yml`, cron wrapper and credentials unchanged.
+- First upgrade build may invalidate the previous analysis cache, refresh board HTML and upload the new evidence objects. Subsequent builds should transfer only changed content. Live dataset size and rendered browser behavior require deployment verification.
+
 # v0.3.9 — Incremental hardware analysis and low-transfer publishing
 
 - Persist hardware inventory and exact-target dependency caches in SQLite. Skip the full inventory when the relevant Git trees are unchanged; otherwise reuse target evidence when its include graph, compatible bindings and matching driver inputs are unchanged. Recheck unresolved includes and invalidate on analysis code changes or upstream history rewrites.

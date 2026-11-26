@@ -30,7 +30,18 @@ def validate_site(docs: Path, output: Path):
         if not (output/name).is_file() or not (output/name).stat().st_size:
             raise RuntimeError(f'Missing/empty required output: {name}')
     for name in ('events.json','intelligence.json'):
-        with (output/name).open(encoding='utf-8') as f: json.load(f)
+        with (output/name).open(encoding='utf-8') as f: data = json.load(f)
+        if name == 'intelligence.json' and data.get('schema_version') == 2:
+            for view in ('data/preferences.json','data/news-view.json'):
+                with (output/view).open(encoding='utf-8') as f: json.load(f)
+            import re
+            refs = {t['evidence_url'] for t in data['comparison']['targets']}
+            for ref in refs:
+                if not re.fullmatch(r'data/board-evidence/[a-f0-9]{64}\.json', ref):
+                    raise RuntimeError(f'Invalid evidence reference: {ref}')
+                file = output/ref
+                if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != file.stem:
+                    raise RuntimeError(f'Missing or inconsistent evidence file: {ref}')
     for name, mount in [('compare.html','pulse-comparator'),('settings.html','pulse-settings'),('hardware-search.html','pulse-hardware-search')]:
         if not any(f'id={q}{mount}{q}' in (output/name).read_text(encoding='utf-8') for q in ('"', "'")):
             raise RuntimeError(f'Missing interactive mount: {name} / {mount}')

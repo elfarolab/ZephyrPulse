@@ -27,7 +27,7 @@ def main():
             assert not page.locator('.md-sidebar--primary').count() or not page.locator('.md-sidebar--primary').is_visible()
             assert page.locator('.pulse-stats .pulse-icon').first.evaluate("el=>getComputedStyle(el).maskImage!=='none'")
             assert page.locator('.md-header__button.md-logo:visible').count()==0
-            table=page.locator('.pulse-news-table').last;table.locator('.pulse-news-row').first.wait_for();assert table.locator('.pulse-news-detail:visible').count()==0
+            group=page.locator('.pulse-category-group').filter(has=page.locator('.pulse-news-table')).first;group.locator('summary strong').click();table=group.locator('.pulse-news-table');table.locator('.pulse-news-row').first.wait_for();assert table.locator('.pulse-news-detail:visible').count()==0
             table.locator('.pulse-news-row').first.locator('button').click();assert table.locator('.pulse-news-detail:visible a').count()>0
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
             page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'

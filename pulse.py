@@ -351,16 +351,18 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None):
     for r in rows: counts[r['kind']]+=1
     header = f'Updated **{now:%Y-%m-%d %H:%M UTC}** · rolling {hours} hours · upstream Git\n\n'
     front='---\nhide:\n  - toc\n---\n\n'
+    from news_table import render_news_table, subject_categories
+    related = subject_categories(rows)
     def blocks(items):
-        from news_table import render_news_table
-        return render_news_table(items, statuses, boards, idx)
+        return render_news_table(items, statuses, boards, idx, related)
     home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'Hardware-focused news from upstream Zephyr. Source evidence is not proof of working hardware.','','<div class="pulse-stats">']
     for k,v in CATEGORIES.items():
         if k!='other': home.append(f'<a href="{k}.html" class="pulse-cat-{k}"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><strong>{counts[k]}</strong><span class="pulse-stat-label">{escape(v)}</span></a>')
     home += ['</div>','','<div class="pulse-tools">']
     for href,label,ico in [('compare','Compare hardware','compare'),('hardware-search','Hardware search','search'),('boards','Board explorer','board'),('settings','Settings','settings')]:
         home.append(f'<a href="{href}.html">{icon(ico)} {label}</a>')
-    home += ['</div>','','## Priority highlights','','All news in the rolling window, newest first. Filter by category or search the headlines. Candidate signals are labeled separately from observed changes. Select a row to inspect its evidence.','',blocks(rows),'','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
+    from news_table import render_category_summary
+    home += ['</div>','','## Priority highlights','','News grouped by category for the rolling window. Expand a category for its three newest events, or select its name to open the full table. All categories remain visible regardless of your watchlist.','',render_category_summary(rows,statuses,boards,idx),'','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
     (docs/'index.md').write_text('\n'.join(home))
     for k,v in CATEGORIES.items(): (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+f'{counts[k]} events · newest first.\n\n'+blocks([r for r in rows if r['kind']==k]))
     (docs/'all.md').write_text(front+'# All commits\n\n'+header+'\n'.join(f"- {r['committed'][:16].replace('T',' ')} UTC · [{md(r['subject'])}]({UPSTREAM}/commit/{r['sha']})" for r in db.execute('SELECT * FROM commits ORDER BY committed DESC,sha')))

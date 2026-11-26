@@ -19,8 +19,8 @@ def main():
         assert page.locator('.pulse-news-detail:visible').count()==205 # no-JS fallback
         assert not page.locator('.md-header__button.md-logo').is_visible();assert page.get_by_text('Zephyr Pulse',exact=True).is_visible()
         page.add_script_tag(content=(ROOT/'docs/assets/news.js').read_text());assert page.locator('.pulse-news-row:visible').count()==100;assert page.locator('.pulse-news-detail:visible').count()==0
-        first=page.locator('.pulse-news-row:visible').first;first.locator('.pulse-news-col-2').click();assert page.locator('.pulse-news-detail:visible a').count()==2;first.locator('button').press('Enter');assert page.locator('.pulse-news-detail:visible').count()==0
-        page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==100;page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==5
+        first=page.locator('.pulse-news-row:visible').first;first.locator('.pulse-news-col-3').click();assert page.locator('.pulse-news-detail:visible a').count()==3;first.locator('button').press('Enter');assert page.locator('.pulse-news-detail:visible').count()==0
+        first.locator('.pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==1;first.locator('.pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==100;page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==100;page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==5
         page.get_by_label('Rows per page').select_option('all');assert page.locator('.pulse-news-row:visible').count()==205
         page.get_by_label('Category',exact=True).select_option('dts');assert page.locator('.pulse-news-row:visible').count()==102
         page.get_by_label('Category',exact=True).select_option('');page.get_by_label('Filter news').fill('Item 042');assert page.locator('.pulse-news-row:visible').count()==1

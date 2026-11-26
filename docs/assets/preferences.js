@@ -31,8 +31,14 @@
   const node=(tag,text)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;return e;};
   const link=(text,path)=>{const a=node('a',text);a.href=new URL(path,base);return a;};
   const split=v=>v.split(',').map(x=>x.trim()).filter(Boolean);
-  let promise;
-  function load(){return promise??=(async()=>{const r=await fetch(new URL('intelligence.json',base));if(!r.ok)throw Error('HTTP '+r.status);const data=await r.json();let storage;try{storage=global.localStorage;}catch(_){}return {data,store:create(data,storage)};})();}
+  const promises=new Map();
+  function load(view='intelligence.json'){
+    if(!promises.has(view)){
+      const task=(async()=>{const r=await fetch(new URL(view,base));if(!r.ok){if(view!=='intelligence.json'&&r.status===404)return load();throw Error('HTTP '+r.status);}const data=await r.json();let storage;try{storage=global.localStorage;}catch(_){}return {data,store:create(data,storage)};})();
+      promises.set(view,task);task.catch(()=>promises.delete(view));
+    }
+    return promises.get(view);
+  }
   const button=(text,action)=>{const b=node('button',text);b.type='button';b.addEventListener('click',action);return b;};
   function theme(value){global.PulseTheme?.apply(value);}
   function settings(el,data,store){
@@ -70,6 +76,6 @@
     transfer.append(actions);el.append(form,transfer);loadFields();notice.textContent=store.saved()?'Preferences ready. Changes are saved in this browser when you select Save preferences.':'Browser storage is unavailable or unreadable. Preferences may not persist.';
   }
   global.PulsePreferences={...api,load,base,node,link,split,button,theme};
-  const main=async()=>{const el=document.getElementById('pulse-settings');try{const {data,store}=await load();theme(store.get().theme);if(el)settings(el,data,store);}catch(_){if(el)el.append(node('p','Preferences data unavailable. Refresh after the next website update.'));}};
+  const main=async()=>{const el=document.getElementById('pulse-settings');try{const {data,store}=await load('data/preferences.json');theme(store.get().theme);if(el)settings(el,data,store);}catch(_){if(el)el.append(node('p','Preferences data unavailable. Refresh after the next website update.'));}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',main);else main();
 })(typeof window==='undefined'?globalThis:window);

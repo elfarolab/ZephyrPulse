@@ -56,3 +56,6 @@ scripts/
 /cloudflare-publish.log
 /deploy/wrangler.toml
 /config.local.yml
+
+# Extra data generated
+/docs/data/
