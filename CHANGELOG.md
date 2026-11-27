@@ -1,3 +1,8 @@
+# v0.3.37 — Clean Intelligence pages
+
+- Remove routine explanatory copy and policy snapshot instructions from Releases / LTS and Upcoming PRs. Keep headings, collection stamp, release tables, and PR state/labels. Retain concise notices for stale, unavailable or disabled PR collection.
+- Preserve release policy and PR diagnostics in published data, scoped analysis caches, and smart publishing. No new dependencies or migrations.
+
 # v0.3.36 — Compact board profiles
 
 - Remove verbose introductions from board activity, capability matrices, retained timelines and raw Devicetree evidence. Omit the recent-commits section when no associated commits are retained.

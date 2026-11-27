@@ -462,13 +462,12 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     release_lines=['# Release and LTS tracking','',stamp,'','## Tracked release tags','', '| Tag | Tag creator date | Configured LTS series |','|---|---|---|']
     for t in reversed(tags): release_lines.append(f"| [{t['tag']}]({UPSTREAM}/releases/tag/{t['tag']}) | {md(t['date'][:10])} | {'Yes' if t['lts'] else '—'} |")
     if not tags: release_lines += ['| — | No eligible stable tags found | — |']
-    release_lines += ['','## Configured support lifecycle','','Policy snapshot: '+md(policy.get('checked','not configured'))+'. Update this configuration from the official release page; the Git tags refresh automatically.','','| Series | Policy status | End of life |','|---|---|---|']
+    release_lines += ['','## Configured support lifecycle','','| Series | Policy status | End of life |','|---|---|---|']
     for series,p in policy.get('series',{}).items():
         eol=str(p.get('eol','')); status=str(p.get('status','unknown'))
         if eol and eol<now.date().isoformat(): status='End of life'
         release_lines.append(f'| {md(series)} | {md(status)} | {md(eol or "not announced")} |')
     if not policy.get('series'): release_lines += ['| — | Not configured | — |']
-    release_lines += ['','Planned releases are listed separately in the official policy; a plan does not imply a release exists.']
     from news_table import render_grouped_news
     hardware_rows=[r for r in rows if r['kind'] not in ('other','docs','subsys','samples','tests','manifest','kernel')]
     if dynamic_news:
@@ -483,9 +482,17 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         release_content='<div data-pulse-category="release_news"></div>\n\n'+'\n'.join(fallback)
     else:
         release_content=render_grouped_news(hardware_rows,'release_news',statuses,boards,idx,commit_files)
-    release_lines += ['', '## Recent hardware news: release inclusion', '', 'One row per hardware-related commit. Expand for classified changes, affected files and exact release inclusion.', '', release_content, '', '[Raw news JSON](events.json) · [All commits](all.md)']
+    release_lines += ['', '## Recent hardware news: release inclusion', '', release_content, '', '[Raw news JSON](events.json) · [All commits](all.md)']
     save('releases.md',release_lines)
-    pr_lines=['# Upcoming hardware support','',stamp,'Open pull requests are proposals, **not merged or released support**. This optional GitHub API view scans recently updated PRs, matching hardware-related titles and labels; it is not an exhaustive roadmap.','',f"Snapshot status: **{md(prs['status'])}** · scanned {prs.get('scanned',0)} PRs · {'bounded / more pages available' if prs.get('truncated') else 'no additional pages reported'} · last successful refresh: <span data-pulse-pr-updated>—</span>",'','| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
+    pr_lines=['# Upcoming hardware support','',stamp,'']
+    # Keep exceptional states visible, without routine API diagnostics above the table.
+    if prs['status']=='stale':
+        pr_lines += ['**PR data is stale** · Last successful refresh: <span data-pulse-pr-updated>—</span>','']
+    elif prs['status']=='unavailable':
+        pr_lines += ['**PR data unavailable.**','']
+    elif prs['status']=='disabled':
+        pr_lines += ['**PR collection disabled.**','']
+    pr_lines += ['| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
     # Enrich a publication-only copy; do not mutate the cached upstream PR snapshot.
     prs={**prs,'items':[dict(p,boards=board_links.proposal(p['title'])) for p in prs['items']]}
     for p in prs['items']:

@@ -53,6 +53,7 @@ scripts/
 # Private Cloudflare deployment
 /publish-cloudflare-cron.local.sh
 /.env.cloudflare
+/.env.github
 /cloudflare-publish.log
 /deploy/wrangler.toml
 /config.local.yml

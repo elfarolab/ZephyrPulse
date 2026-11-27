@@ -44,6 +44,46 @@ class IntelligenceTest(unittest.TestCase):
         self.assertIn('boards/'+boards[key]['slug']+'.html',(docs/'releases.md').read_text())
         self.assertEqual((docs/'index.md').read_text().count('class="pulse-stat-label"'),15)
         self.assertNotIn('<!-- pulse-watchlist-slot -->',(docs/'index.md').read_text())
+    def test_clean_release_and_pr_pages_preserve_data_and_failure_notices(self):
+        now=dt.datetime.now(UTC); docs=self.root/'docs'
+        collect(self.db,self.g,self.base,now,72); boards=inventory(self.g,self.base)
+        coverage=update_history(self.db,self.g,self.base,now,boards,90,0)
+        self.git('tag','v4.0.0',self.base); tags=release_tags(self.g,set())
+        statuses=release_status(self.g,self.db,tags,[self.base])
+        policy={'checked':'2026-11-26','series':{'4.0':{'status':'Latest stable at policy snapshot','eol':'2099-01-01'}}}
+        snapshot={'status':'ok','updated':now.isoformat(),'scanned':200,'truncated':True,
+                  'items':[{'number':42,'title':'drivers: test proposal','updated':now.isoformat(),'draft':False,'labels':['area: Drivers']},
+                           {'number':43,'title':'boards: draft proposal','updated':now.isoformat(),'draft':True,'labels':[]}]}
+        for dynamic,status in ((False,'ok'),(True,'ok'),(True,'stale'),(True,'unavailable'),(True,'disabled')):
+            with self.subTest(dynamic=dynamic,status=status):
+                prs={**snapshot,'status':status}
+                if status in ('unavailable','disabled'): prs={'status':status,'items':[],'scanned':0}
+                render(self.db,docs,now,72,'https://example.invalid/',statuses)
+                render_extra(self.db,docs,now,self.base,boards,coverage,tags,prs,statuses,{},'https://example.invalid/',policy=policy,dynamic_news=dynamic)
+                release=(docs/'releases.md').read_text(); upcoming=(docs/'upcoming.md').read_text()
+                for phrase in ('Policy snapshot:', 'Update this configuration', 'Planned releases are listed', 'One row per hardware-related commit'):
+                    self.assertNotIn(phrase,release)
+                for phrase in ('Open pull requests are proposals','Snapshot status:','scanned 200 PRs','bounded / more pages available'):
+                    self.assertNotIn(phrase,upcoming)
+                self.assertIn('data-pulse-updated',release); self.assertIn('data-pulse-updated',upcoming)
+                for phrase in ('## Tracked release tags','v4.0.0','## Configured support lifecycle','2099-01-01','## Recent hardware news: release inclusion'):
+                    self.assertIn(phrase,release)
+                self.assertEqual(json.loads((docs/'intelligence.json').read_text())['release_policy'],policy)
+                published=json.loads((docs/'data/activity.json').read_text())['pull_requests']
+                self.assertEqual(published['status'],status); self.assertEqual(published['scanned'],prs['scanned'])
+                self.assertEqual(json.loads((docs/'data/status.json').read_text())['pr_status'],status)
+                if status in ('ok','stale'):
+                    self.assertIn('/pull/42',upcoming); self.assertIn('| Open | area: Drivers |',upcoming)
+                    self.assertIn('/pull/43',upcoming); self.assertIn('| Draft |',upcoming)
+                    self.assertTrue(published['truncated'])
+                if status=='ok':
+                    self.assertRegex(upcoming,r'</p>\s+\| Updated UTC')
+                    self.assertNotIn('PR data is stale',upcoming)
+                elif status=='stale':
+                    self.assertIn('PR data is stale',upcoming); self.assertIn('data-pulse-pr-updated',upcoming)
+                else:
+                    self.assertIn('PR data unavailable' if status=='unavailable' else 'PR collection disabled',upcoming)
+
     def test_history_retention_and_rewrite(self):
         now=dt.datetime.now(UTC); collect(self.db,self.g,self.base,now,72); boards=inventory(self.g,self.base)
         update_history(self.db,self.g,self.base,now,boards,90,0)
