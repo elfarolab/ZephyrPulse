@@ -58,6 +58,7 @@ class CachedRendererTests(TestCase):
         def failure(work,text,clean):
             if work.name=='.pulse-render-cache':raise RuntimeError('cache failure')
             fake_run(work,text,clean)
+        (self.root/'docs/index.md').write_text('another change')
         with patch.object(g,'_run',side_effect=failure), self.assertLogs(level='ERROR') as logs:
             build_site(self.root,g,'https://example.invalid/')
         self.assertIn('retrying a clean staged build',logs.output[0])

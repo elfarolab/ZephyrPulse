@@ -1,3 +1,10 @@
+# v0.3.35 — Smart incremental publishing
+
+- Separate collection status from rendered Markdown and data snapshots; unchanged news and activity datasets retain their bytes. The browser reads the actual collection time from `data/status.json`.
+- Skip Zensical for unchanged or passthrough-data-only input sets when incremental rendering is enabled and native search is disabled. Preserve staged validation, clean fallback, and site replacement. Markdown, theme/assets, native search and configuration changes still render normally.
+- Cache successful PR snapshots for 60 minutes by default, configurable via `pull_requests.refresh_minutes` (0 disables reuse). A changed query bypasses the cache.
+- Retain rolling expiry, historical backfill, scoped hardware caches, and release checks. Add synthetic no-change/expiry, renderer fast-path and browser status regressions.
+
 # v0.3.34 — Clean Board Explorer and Vendor activity headers
 
 - Remove history/backfill/classifier progress paragraphs from Board Explorer and Vendor activity. Keep coverage in the published activity JSON and collector logs; remove the obsolete board-profile link to global history coverage.

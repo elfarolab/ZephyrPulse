@@ -147,3 +147,24 @@
   window.PulseFreshness={ageBand,scan};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* Shared collection status; no timestamp churn in rendered page HTML. */
+(()=>{
+  const script=document.currentScript;
+  if(!script?.src)return;
+  const url=new URL('../data/status.json',script.src);
+  function display(value){
+    const date=new Date(value||'');
+    return Number.isFinite(date.getTime())?date.toISOString().slice(0,16).replace('T',' ')+' UTC':'—';
+  }
+  function start(){
+    const updated=document.querySelectorAll('[data-pulse-updated]');
+    const prs=document.querySelectorAll('[data-pulse-pr-updated]');
+    if(!updated.length&&!prs.length)return;
+    fetch(url,{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('HTTP '+r.status);return r.json();}).then(data=>{
+      updated.forEach(el=>{el.textContent=display(data.updated);});
+      prs.forEach(el=>{el.textContent=display(data.pr_updated);});
+    }).catch(()=>{updated.forEach(el=>{el.title='Collection timestamp unavailable';});});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();

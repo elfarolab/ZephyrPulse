@@ -5,6 +5,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from threading import Thread
 from playwright.sync_api import sync_playwright, expect
 import re
+import json
 from browser_geometry import assert_grid_rows
 import shutil
 
@@ -60,6 +61,8 @@ def main():
             assert page.locator('.md-header__button.md-logo:visible').count()==0
             assert page.locator('.pulse-category-summary').count()==0
             assert_grid_rows(page.locator('.pulse-stats a'), 5, 15)
+            stamp=json.loads((ROOT/'site/data/status.json').read_text())['updated'][:16].replace('T',' ')+' UTC'
+            expect(page.locator('[data-pulse-updated]')).to_have_text(stamp)
             for category in ('dt_bindings','subsys','samples','tests','manifest','kernel','other'):
                 page.locator(f'.pulse-stats a[href="{category}.html"]').click();page.wait_for_url(base+category+'.html')
                 brand=page.get_by_role('link',name='Zephyr Pulse home');expect(brand).to_be_visible()

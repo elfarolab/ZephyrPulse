@@ -307,6 +307,18 @@ def get_prs(db,cfg,now):
     if not pcfg.get('enabled',True) or cfg.get('upstream','https://github.com/zephyrproject-rtos/zephyr.git').rstrip('/').removesuffix('.git')!='https://github.com/zephyrproject-rtos/zephyr':
         return {'status':'disabled','items':[],'scanned':0}
     pages=max(1,min(10,int(pcfg.get('pages',2)))); items=[]; scanned=0; truncated=False
+    minutes=int(pcfg.get('refresh_minutes',60))
+    if minutes < 0: raise ValueError('pull_requests.refresh_minutes must be nonnegative')
+    signature=json.dumps({'branch':cfg.get('branch','main'),'pages':pages},sort_keys=True)
+    prior=db.execute('SELECT value FROM state WHERE key=?',(key+'_query',)).fetchone()
+    if prior and prior[0]!=signature: old=None
+    if old and prior and minutes:
+        try:
+            cached=json.loads(old[0]); age=(now-dt.datetime.fromisoformat(cached['updated'])).total_seconds()
+            if cached.get('status')=='ok' and 0<=age<minutes*60:
+                logging.info('PR snapshot: cached (%.1f minutes old; refresh interval %d minutes)',age/60,minutes)
+                return cached
+        except (ValueError, KeyError, TypeError): pass
     try:
         for page in range(1,pages+1):
             logging.info('GitHub API: fetching PR page %d/%d',page,pages)
@@ -323,7 +335,8 @@ def get_prs(db,cfg,now):
             if not more: break
             if page==pages: truncated=True
         result={'status':'ok','updated':now.isoformat(),'items':list({p['number']:p for p in items}.values()),'scanned':scanned,'truncated':truncated}
-        db.execute('INSERT OR REPLACE INTO state VALUES(?,?)',(key,json.dumps(result))); db.commit(); return result
+        db.execute('INSERT OR REPLACE INTO state VALUES(?,?)',(key,json.dumps(result)))
+        db.execute('INSERT OR REPLACE INTO state VALUES(?,?)',(key+'_query',signature)); db.commit(); return result
     except (OSError,ValueError,KeyError,TypeError) as e:
         logging.warning('PR snapshot unavailable: %s',type(e).__name__)
         result=json.loads(old[0]) if old else {'items':[],'scanned':0}; return {**result,'status':'stale' if old else 'unavailable'}
@@ -343,7 +356,8 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     for p in directory.glob('*.md'):
         if p.name not in expected_pages: p.unlink()
     page_counts=Counter()
-    stamp=f'Updated **{now:%Y-%m-%d %H:%M UTC}** · main snapshot `{head[:12]}`.\n\n'
+    from browser_data import update_stamp, write_snapshot, publish_status
+    stamp=update_stamp(f'main snapshot <code>{head[:12]}</code>')
     idx=folder_index(boards)
     from board_links import BoardLinks, profile_url
     board_links=BoardLinks(boards)
@@ -468,7 +482,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         release_content=render_grouped_news(hardware_rows,'release_news',statuses,boards,idx,commit_files)
     release_lines += ['', '## Recent hardware news: release inclusion', '', 'One row per hardware-related commit. Expand for classified changes, affected files and exact release inclusion.', '', release_content, '', '[Raw news JSON](events.json) · [All commits](all.md)']
     save('releases.md',release_lines)
-    pr_lines=['# Upcoming hardware support','',stamp,'Open pull requests are proposals, **not merged or released support**. This optional GitHub API view scans recently updated PRs, matching hardware-related titles and labels; it is not an exhaustive roadmap.','',f"Snapshot status: **{md(prs['status'])}** · scanned {prs.get('scanned',0)} PRs · {'bounded / more pages available' if prs.get('truncated') else 'no additional pages reported'} · last successful refresh: {md(prs.get('updated','none'))}",'','| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
+    pr_lines=['# Upcoming hardware support','',stamp,'Open pull requests are proposals, **not merged or released support**. This optional GitHub API view scans recently updated PRs, matching hardware-related titles and labels; it is not an exhaustive roadmap.','',f"Snapshot status: **{md(prs['status'])}** · scanned {prs.get('scanned',0)} PRs · {'bounded / more pages available' if prs.get('truncated') else 'no additional pages reported'} · last successful refresh: <span data-pulse-pr-updated>—</span>",'','| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
     # Enrich a publication-only copy; do not mutate the cached upstream PR snapshot.
     prs={**prs,'items':[dict(p,boards=board_links.proposal(p['title'])) for p in prs['items']]}
     for p in prs['items']:
@@ -494,7 +508,8 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     write_rss(docs/'watchlist.xml',watched,site_url,'Zephyr Pulse — Watchlist')
     from browser_data import publish_catalog
     publish_catalog(docs, comparison, {'updated':now.isoformat(),'head':head,'coverage':coverage,'boards':board_data,'watchlist':watch,'vendors':vendors,'releases':tags,'release_policy':policy,'pull_requests':prs,'events':rows,'preferences':preferences,'commit_files':commit_files or {}})
-    (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'events':rows,'window_hours':hours},ensure_ascii=False),encoding='utf-8')
+    write_snapshot(docs/'events.json', {'updated':now.isoformat(),'events':rows,'window_hours':hours})
+    publish_status(docs,now,head,hours,coverage,prs)
     # Add a second, independent watched-news section without filtering the original homepage.
     home=docs/'index.md'; body=home.read_text(); marker='<!-- pulse-watchlist-slot -->'
     snippet='## Watchlist highlights\n\n[Edit preferences](settings.md) · [All watched news](watchlist.md) · [Public watchlist RSS](watchlist.xml)\n\n<div id="pulse-home-watch" class="pulse-watch-panel"></div>\n\n<div id="pulse-home-fallback">\n' 

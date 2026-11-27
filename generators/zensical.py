@@ -9,6 +9,14 @@ import logging
 import hashlib
 from importlib.metadata import version, PackageNotFoundError
 
+def data_only(rel):
+    """Allow only application-owned passthrough datasets; never skip Markdown,
+    CSS/JS, theme configuration, native search, or unknown static files."""
+    return (rel.as_posix() in {'events.json','intelligence.json','feed.xml','watchlist.xml'}
+            or (rel.parts[0]=='data' and rel.suffix=='.json')
+            or (rel.parts[:2]==('data','board-images') and rel.suffix in {'.png','.jpg','.jpeg','.webp','.gif'}))
+
+
 class Zensical:
     def __init__(self, config):
         self.strict = config.get('strict', True)
@@ -81,21 +89,30 @@ class Zensical:
         removed=old.keys()-inputs.keys()
         # Removing Markdown can affect navigation and search. Rebuild clean in that case.
         clean=clean or any(p.suffix=='.md' for p in removed)
+        marker.unlink(missing_ok=True)
         for rel in removed:
             old[rel].unlink()
             output=cache/'site'/(rel.with_suffix('.html') if rel.suffix=='.md' else rel)
             output.unlink(missing_ok=True)
-        changed=0
+        changed=set()
         for rel,source in inputs.items():
             target=docs/rel
             if not target.is_file() or target.read_bytes()!=source.read_bytes():
                 target.parent.mkdir(parents=True,exist_ok=True)
-                shutil.copyfile(source,target);changed+=1
+                shutil.copyfile(source,target);changed.add(rel)
         if clean and (cache/'site').exists(): shutil.rmtree(cache/'site')
-        logging.info('Zensical cache: %s; %d updated inputs, %d removed', 'clean build' if clean else 'incremental build',changed,len(removed))
-        # A failed run must not be used as the next successful baseline.
-        marker.unlink(missing_ok=True)
-        self._run(cache,text,clean=clean)
+        logging.info('Zensical cache: %s; %d updated inputs, %d removed', 'clean build' if clean else 'incremental build',len(changed),len(removed))
+        # Reuse the last successful renderer output for passthrough-only changes.
+        # Validation below is identical to a normal render; any failure triggers
+        # the existing clean staged fallback, leaving the published site intact.
+        if not clean and not self.native_search and (cache/'site').is_dir() and all(data_only(p) for p in changed|removed):
+            for rel in changed:
+                target=cache/'site'/rel
+                target.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(docs/rel,target)
+            logging.info('Zensical fast path: renderer skipped; %d updated data files, %d removed',len(changed),len(removed))
+        else:
+            self._run(cache,text,clean=clean)
         validate_site(docs,cache/'site')
         self._validate_search(cache/'site')
         shutil.copytree(cache/'site',workspace/'site')

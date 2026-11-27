@@ -359,14 +359,15 @@ def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.
     return f'<span class="pulse-icon pulse-i-{escape(name, quote=True)}" aria-hidden="true"></span>'
 
-def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_news=False, commit_files=None):
+def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_news=False, commit_files=None, write_events=True):
     from intelligence import board_ids, folder_index
     statuses = statuses or {}; boards=boards or {}; idx=folder_index(boards)
     docs.mkdir(parents=True,exist_ok=True)
     rows = db.execute('SELECT e.*,c.committed,c.subject AS commit_subject FROM events e JOIN commits c USING(sha) ORDER BY c.committed DESC,sha,kind,subject').fetchall()
     counts = defaultdict(int)
     for r in rows: counts[r['kind']]+=1
-    header = f'Updated **{now:%Y-%m-%d %H:%M UTC}** · rolling {hours} hours · upstream Git\n\n'
+    from browser_data import update_stamp, write_snapshot
+    header = update_stamp(f'rolling {hours} hours · upstream Git')
     front='---\nhide:\n  - toc\n---\n\n'
     from news_table import render_news_table, subject_categories, render_grouped_news
     from news_groups import GROUPED, group_events, group_unit
@@ -401,7 +402,8 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
     else:
         all_content = render_grouped_news(rows, 'all', statuses, boards, idx, commit_files)
     (docs/'all.md').write_text(front+'# All commits\n\n'+header+all_content)
-    (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'window_hours':hours,'events':[dict(r) for r in rows]},indent=2,ensure_ascii=False))
+    if write_events:
+        write_snapshot(docs/'events.json', {'updated':now.isoformat(),'window_hours':hours,'events':[dict(r) for r in rows]})
     write_rss(docs/'feed.xml',rows,site_url)
 
 def write_rss(path,rows,site_url,title='Zephyr Pulse'):
@@ -475,7 +477,7 @@ def main():
             with stage('Generate recent news Markdown and feeds'):
                 from news_groups import recent_files
                 commit_files=recent_files(db,repo)
-                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False),commit_files=commit_files)
+                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False),commit_files=commit_files,write_events=False)
             from board_images import publish as publish_board_images
             with stage('Discover and publish board images'):
                 board_images=publish_board_images(repo,head,boards,ROOT/'docs',cfg.get('board_images',True))

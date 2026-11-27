@@ -71,3 +71,11 @@ When adding indirect dependencies (object methods, dynamic imports, runtime disp
 ### Compact rows (v0.3.32)
 
 `python tests/compact_tables_browser_smoke.py` checks one-line geometry at desktop and mobile widths, inline evidence/freshness badges, title sorting independent of the badges, complete hidden evidence search, and collapsed comparator source links. It is included in the manual extended workflow. Long news strings are visually clipped but preserved in titles and expanded details. Narrow tables scroll horizontally.
+
+### Smart publishing (v0.3.35)
+
+When `generator.incremental: true` and `generator.native_search: false`, the renderer can reuse the last validated persistent output if only application JSON, RSS, or board-image files changed. Markdown, CSS/JS, unknown assets, renderer configuration and native search still follow the normal renderer path. Failure triggers the existing clean staged fallback. The extended synthetic CI run verifies that a repeated unchanged build reports `Zensical fast path: renderer skipped` and that the browser reads the shared collection timestamp.
+
+`data/status.json` contains the exact latest collection timestamp, head, window, historical coverage/cutoff and last successful PR refresh. The `updated` fields in the other JSON snapshots identify when their content last changed; the activity snapshot retains its previous cutoff within a UTC day if no substantive data changed. Use status for the current exact cutoff. The header uses JavaScript to display the status and shows a dash if it is unavailable. PR snapshots default to a 60-minute refresh interval; set `pull_requests.refresh_minutes: 0` to fetch every run. Failed refreshes are marked stale and are retried; a different branch or page limit forces a new fetch.
+
+Run `python -m unittest discover -s tests -p test_smart_publish.py -v` and `python tests/status_browser_smoke.py` for isolated tests. Full real-renderer verification is provided by `python tests/ci_fixture.py --extended` (temporary synthetic project, no production publishing).

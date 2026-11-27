@@ -17,6 +17,45 @@ def write_changed(path, content):
     return True
 
 
+def write_snapshot(path, value, *, daily_cutoff=False):
+    """Keep the timestamp of the last substantive dataset change, not poll time.
+
+    The exact collection timestamp and history cutoff live in data/status.json.
+    Activity cutoff dates still participate in comparison for daily charts.
+    """
+    def semantic(data):
+        data = dict(data)
+        data.pop('updated', None)
+        if daily_cutoff and isinstance(data.get('coverage'), dict):
+            coverage = dict(data['coverage'])
+            if isinstance(coverage.get('cutoff'), str):
+                coverage['cutoff'] = coverage['cutoff'][:10]
+            data['coverage'] = coverage
+        return encoded(data)
+    if path.is_file():
+        try:
+            old = json.loads(path.read_bytes())
+            if isinstance(old, dict) and 'updated' in old and semantic(old) == semantic(value):
+                return False
+        except (ValueError, TypeError, UnicodeError):
+            pass
+    return write_changed(path, encoded(value))
+
+
+def update_stamp(suffix):
+    # Stable HTML; the shared browser script supplies the real collection time.
+    return '<p>Updated <strong data-pulse-updated>—</strong> · '+suffix+'</p>\n\n'
+
+
+def publish_status(docs, now, head, hours, coverage, prs):
+    directory = docs / 'data'
+    directory.mkdir(parents=True, exist_ok=True)
+    write_changed(directory / 'status.json', encoded({
+        'updated': now.isoformat(), 'head': head, 'window_hours': hours,
+        'coverage': coverage, 'pr_updated': prs.get('updated'), 'pr_status': prs.get('status'),
+    }))
+
+
 def publish_catalog(docs, comparison, payload):
     """Keep every feature state in the catalog; move full DTS nodes off the hot path.
 
@@ -66,7 +105,7 @@ def publish_catalog(docs, comparison, payload):
     news = {**common, 'boards': [b for b in payload.get('boards', []) if b['id'] in associated], 'events': payload.get('events', []), 'commit_files': payload.get('commit_files', {})}
     prefs = {**{k:v for k,v in common.items() if k != 'updated'}, 'comparison': {'snapshots': comparison.get('snapshots', [])}}
     news_bytes = encoded(news); prefs_bytes = encoded(prefs)
-    write_changed(docs / 'data' / 'news-view.json', news_bytes)
+    write_snapshot(docs / 'data' / 'news-view.json', news)
     write_changed(docs / 'data' / 'preferences.json', prefs_bytes)
     logging.info('Browser news view: %.2f MiB; settings view: %.2f KiB', len(news_bytes)/1048576, len(prefs_bytes)/1024)
     # Keep frequently changing activity out of the hardware catalog.
@@ -75,7 +114,7 @@ def publish_catalog(docs, comparison, payload):
     dynamic = {k:payload[k] for k in ('updated','head','coverage','vendors','pull_requests') if k in payload}
     dynamic.update(target_activity=activity, board_activity=board_activity)
     dynamic_bytes = encoded(dynamic)
-    write_changed(docs / 'data' / 'activity.json', dynamic_bytes)
+    write_snapshot(docs / 'data' / 'activity.json', dynamic, daily_cutoff=True)
     payload = {k:v for k,v in payload.items() if k not in dynamic and k not in ('events','commit_files')}
     payload = {**payload, 'schema_version': 3, 'comparison': comparison}
     logging.info('Browser activity: %.2f MiB', len(dynamic_bytes)/1048576)

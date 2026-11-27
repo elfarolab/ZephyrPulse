@@ -48,7 +48,8 @@ class ComparisonTest(unittest.TestCase):
         render_extra(self.db,docs,now,head,boards,cov,[],{'status':'disabled','items':[]},{},{},'https://example.invalid/')
         for page, marker in [('boards.md','pulse-board-filter'),('vendors.md','pulse-vendor-filter')]:
             body=(docs/page).read_text()
-            self.assertIn(f'Updated **{now:%Y-%m-%d %H:%M UTC}**',body)
+            self.assertIn('Updated <strong data-pulse-updated>—</strong>',body)
+            self.assertEqual(json.loads((docs/'data/status.json').read_text())['updated'],now.isoformat())
             self.assertIn(marker,body)
             for prose in ('History:', 'Backfill in progress', 'Classifier refresh pending', 'All discovered', 'Compare hardware targets'):
                 self.assertNotIn(prose,body)

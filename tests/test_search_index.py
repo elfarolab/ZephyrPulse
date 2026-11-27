@@ -32,7 +32,7 @@ class DisabledSearchIndexTests(TestCase):
                 out = build_site(self.root, g, 'https://example.invalid/')
                 self.assertEqual(json.loads((out/'search.json').read_text())['items'], [])
                 self.assertTrue((self.root/'.pulse-render-cache/signature').exists())
-        self.assertEqual(calls, [True, False])
+        self.assertEqual(calls, [True])
 
     def test_nonempty_cached_index_triggers_clean_fallback(self):
         self.prepare()

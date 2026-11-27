@@ -18,9 +18,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII='
 BROWSER_TESTS = ('news_browser_smoke.py', 'table_browser_smoke.py', 'browser_smoke.py',
-                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'board_profile_browser_smoke.py', 'freshness_browser_smoke.py', 'compact_tables_browser_smoke.py', 'rendered_smoke.py')
+                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'board_profile_browser_smoke.py', 'freshness_browser_smoke.py', 'compact_tables_browser_smoke.py', 'status_browser_smoke.py', 'rendered_smoke.py')
 REQUIRED = ('index.html', 'boards.html', 'watchlist.xml', 'intelligence.json',
-            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html', 'dt_bindings.html', 'subsys.html', 'samples.html', 'tests.html', 'manifest.html', 'kernel.html', 'board_candidate.html')
+            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html', 'dt_bindings.html', 'subsys.html', 'samples.html', 'tests.html', 'manifest.html', 'kernel.html', 'board_candidate.html', 'data/status.json')
 
 
 def run(cwd, *args):
@@ -102,8 +102,16 @@ def exercise(work, extended):
                 'generator': {'engine': 'zensical', 'strict': True,
                               'incremental': False, 'native_search': False}}
     config.write_text(yaml.safe_dump(settings))
-    def build():
-        run(project, sys.executable, 'pulse.py', '--config', str(config), '--no-publish')
+    def build(expect_fast=False):
+        command=[sys.executable, 'pulse.py', '--config', str(config), '--no-publish']
+        if not expect_fast:
+            run(project,*command)
+            return
+        result=subprocess.run(command,cwd=project,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        print(result.stdout,end='')
+        result.check_returncode()
+        if 'Zensical fast path: renderer skipped' not in result.stdout:
+            raise RuntimeError('Expected data-only fast path on repeated collection')
     build()
     site = project / 'site'
     for name in REQUIRED:
@@ -139,8 +147,8 @@ def exercise(work, extended):
     check_stability()
     settings['generator']['incremental'] = True
     config.write_text(yaml.safe_dump(settings))
-    for _ in range(2):
-        build()
+    for i in range(2):
+        build(expect_fast=(i==1))
         check_stability()
         if not (project / '.pulse-render-cache/signature').is_file():
             raise RuntimeError('Expected persistent renderer cache signature')
