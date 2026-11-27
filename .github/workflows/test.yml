@@ -1,68 +1,31 @@
 name: Test
-on: [push, pull_request]
+'on':
+  push:
+    branches: ['**']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements.txt
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: node --test tests/test*.cjs
       - name: Build sample site
-        run: |
-          git init -b main /tmp/pulse-fixture
-          git -C /tmp/pulse-fixture config user.email test@example.invalid
-          git -C /tmp/pulse-fixture config user.name Fixture
-          mkdir -p /tmp/pulse-fixture/boards/test/kit
-          printf 'board:\n  name: kit\n  socs:\n    - name: chip\n' > /tmp/pulse-fixture/boards/test/kit/board.yml
-          printf 'identifier: kit/chip\nsupported: [gpio, can]\n' > /tmp/pulse-fixture/boards/test/kit/kit.yaml
-          mkdir -p /tmp/pulse-fixture/boards/test/kit/doc
-          # Public synthetic 1x1 PNG fixture (base64 image bytes, not a credential).
-          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII=' | base64 -d > /tmp/pulse-fixture/boards/test/kit/doc/kit.png
-          git -C /tmp/pulse-fixture add .
-          git -C /tmp/pulse-fixture commit -m 'new board'
-          git -C /tmp/pulse-fixture tag v4.0.0
-          printf 'upstream: /tmp/pulse-fixture\nstate_dir: state/ci\npull_requests: {enabled: false}\n' > /tmp/pulse-config.yml
-          python pulse.py --config /tmp/pulse-config.yml --no-publish
-          test -f site/index.html
-          test -f site/boards.html
-          test -f site/watchlist.xml
-          test -f site/intelligence.json
-          test -f site/compare.html
-          test -f site/settings.html
-          test -f site/hardware-search.html
-      - name: Check real rendered board byte stability after unrelated changes
-        run: |
-          find site/boards -type f -name '*.html' -print0 | sort -z | xargs -0 sha256sum > /tmp/board-html.sha256
-          mkdir -p /tmp/pulse-fixture/doc
-          printf 'Unrelated documentation\n' > /tmp/pulse-fixture/doc/unrelated.rst
-          git -C /tmp/pulse-fixture add .
-          git -C /tmp/pulse-fixture commit -m 'unrelated documentation'
-          python pulse.py --config /tmp/pulse-config.yml --no-publish
-          sha256sum --check /tmp/board-html.sha256
-      - name: Check optional cached renderer and disabled native search
-        run: |
-          python -c "from pathlib import Path; from generators import get_generator; get_generator({'native_search': False})._validate_search(Path('site'))"
-          printf '\ngenerator: {incremental: true, native_search: false}\n' >> /tmp/pulse-config.yml
-          python pulse.py --config /tmp/pulse-config.yml --no-publish
-          sha256sum --check /tmp/board-html.sha256
-          test -f .pulse-render-cache/signature
-          python pulse.py --config /tmp/pulse-config.yml --no-publish
-          sha256sum --check /tmp/board-html.sha256
-          test -f .pulse-render-cache/signature
-          python -c "from pathlib import Path; from generators import get_generator; get_generator({'native_search': False})._validate_search(Path('site'))"
-      - name: Browser fixture smoke test
-        run: |
-          pip install playwright
-          python -m playwright install --with-deps chromium
-          python tests/news_browser_smoke.py
-          python tests/table_browser_smoke.py
-          python tests/browser_smoke.py
-          python tests/link_icons_browser_smoke.py
-          python tests/rendered_smoke.py
+        run: python tests/ci_fixture.py

@@ -36,7 +36,7 @@ def main():
             expect(cards).to_have_count(1);expect(target_link).to_be_visible()
             page.reload();expect(query).to_have_value('*kit*');expect(kind).to_have_value('target')
             expect(cards).to_have_count(1);expect(target_link).to_be_visible()
-            expect(targets.locator('.pulse-search-board-photo')).to_be_visible();target_link.click();page.get_by_text('Target capability matrix',exact=True).wait_for();photo=page.locator('.pulse-board-photo img');photo.wait_for();photo.scroll_into_view_if_needed();page.wait_for_function("document.querySelector('.pulse-board-photo img').naturalWidth > 0");assert not errors,errors
+            expect(targets.locator('.pulse-search-board-photo')).to_be_visible();target_link.click();page.get_by_role('heading',name='Target capability matrix',exact=True,level=2).wait_for();photo=page.locator('.pulse-board-photo img');photo.wait_for();photo.scroll_into_view_if_needed();page.wait_for_function("document.querySelector('.pulse-board-photo img').naturalWidth > 0");assert not errors,errors
             page.locator('.pulse-board-overview-links a .pulse-i-github').first.wait_for()
             assert page.locator('script[src*="assets/theme-zensical.js?pulse_v="]').count()==1
             assert page.locator('link[href*="assets/pulse.css?pulse_v="]').count()==1
@@ -54,7 +54,7 @@ def main():
             page.set_viewport_size({'width':1920,'height':1000});assert page.locator('.md-main__inner').evaluate('el=>el.getBoundingClientRect().width') <= 1920*.72
             page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog a').filter(has_text=re.compile(r'^kit/chip$')).locator("xpath=self::a[preceding-sibling::h3[1][starts-with(normalize-space(.), 'Board targets (')]]").wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
-            profile=page.locator('.pulse-news-row .pulse-board-profile-link').first;profile.wait_for();profile.click();page.wait_for_url('**/boards/*.html');page.get_by_text('Target capability matrix',exact=True).wait_for();page.go_back();page.locator('.pulse-news-row').first.wait_for()
+            profile=page.locator('.pulse-news-row .pulse-board-profile-link').first;profile.wait_for();profile.click();page.wait_for_url('**/boards/*.html');page.get_by_role('heading',name='Target capability matrix',exact=True,level=2).wait_for();page.go_back();page.locator('.pulse-news-row').first.wait_for()
             page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'
             browser.close()
     finally:server.shutdown();server.server_close();thread.join()

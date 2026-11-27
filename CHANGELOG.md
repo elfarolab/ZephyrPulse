@@ -1,3 +1,11 @@
+# v0.3.23 — Lightweight CI and optional integration testing
+
+- Automatic CI runs Python and JavaScript unit tests plus one synthetic Zensical site build on branch pushes and pull requests. Tags do not trigger duplicate runs; superseded runs are cancelled and execution is bounded by a timeout.
+- Move repeated renderer stability/cache checks and all Chromium tests to a manually triggered extended workflow. Keep every existing test; no failure is silently ignored.
+- Use a shared temporary fixture runner for GitHub and local testing, isolated from the production website, configuration and SQLite state.
+- Fix both ambiguous board-profile heading selectors in the rendered browser test.
+- No production code, CSS, JavaScript, database or configuration changes.
+
 # v0.3.22 — Search smoke test synchronization
 
 - Wait for the debounced exact-target search to settle before asserting a unique board card, and scope the universal search test to the Board targets group rather than matching news with the same title. Assert persisted query and result type after reload.
