@@ -13,7 +13,7 @@ class TableLayoutTests(TestCase):
             'board_candidate':[0,2,3,4,5,6], 'board_change':[0,2,3,4,5,6],
             'board_feature':[0,2,3,4,5,6], 'dts':[0,3,4,5,6],
             'docs':[0,3,4,5,6], 'other':[0,3,4,5,6],
-            **{k:[0,3,4,5,6] for k in ('dt_bindings','subsys','samples','tests','manifest')},
+            **{k:[0,3,4,5,6] for k in ('dt_bindings','subsys','samples','tests','manifest','kernel')},
             'all':[0,1,3,4,5,6], 'release_news':[0,1,3,4,5,6],
         }
         self.assertEqual(GROUPED, set(expected)-{'all','release_news'})
@@ -38,13 +38,29 @@ class TableLayoutTests(TestCase):
         b=dict(a,detail='New supported metadata entry: spi')
         c=dict(a,path='boards/a/kit/other.yml')
         rows=[a,b,c]
-        self.assertEqual(len(group_events(rows,'board_feature')),2)
-        self.assertEqual(group_unit('board_feature'),'capability signals')
+        self.assertEqual(len(group_events(rows,'board_feature')),1)
+        self.assertEqual(group_unit('board_feature'),'commit groups')
         html=render_grouped_news(rows,'board_feature')
         self.assertIn('New supported metadata entry: can',html)
         self.assertIn('New supported metadata entry: spi',html)
-        self.assertEqual(html.count('class="pulse-signal-preview"'),2)
+        self.assertEqual(html.count('class="pulse-signal-preview"'),1)
+        self.assertEqual(html.count('class="pulse-news-row '),1)
+
+    def test_combined_board_scope_and_evidence(self):
+        a=event(kind='board_feature',subject='kit/chip/cpu0',path='boards/a/kit/kit.yaml',detail='New supported metadata entry: rtc')
+        b=dict(a,detail='New supported metadata entry: counter')
+        candidate=dict(a,kind='board_candidate',subject='boards/a/kit',path='boards/a/kit/kit.dts',detail='Compatible change: possible support',confidence='candidate')
+        other=dict(candidate,subject='boards/a/other',path='boards/a/other/other.dts')
+        groups=group_events([candidate,a,b,other],'board_feature')
+        self.assertEqual([(g['subject'],len(g['rows'])) for g in groups],[('kit/chip/cpu0',3),('boards/a/other',1)])
+        html=render_grouped_news([candidate,a,b,other],'board_feature')
+        self.assertIn('Declared metadata',html);self.assertIn('Possible support',html)
+        self.assertIn('New supported metadata entry: counter',html)
         self.assertEqual(html.count('class="pulse-news-row '),2)
+        # Shared-folder evidence must not be assigned to either of two targets.
+        multi=group_events([candidate,a,dict(a,subject='kit/chip/cpu1')],'board_feature')
+        self.assertEqual(len(multi),3)
+        self.assertEqual(sum(len(g['rows']) for g in multi),3)
 
     def test_mixed_groups_preserve_categories_and_release_metadata(self):
         a=event(); b=event(kind='docs',path='doc/driver.rst')

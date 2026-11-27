@@ -28,7 +28,7 @@ CATEGORIES = {
     'board_feature': 'Board capability changes', 'board_candidate': 'Possible board support',
     'board': 'New boards', 'board_change': 'Board maintenance', 'soc': 'SoCs',
     'sensor': 'Sensors', 'driver': 'Drivers', 'dts': 'Devicetree', 'dt_bindings': 'DT bindings', 'subsys': 'Subsystems',
-    'samples': 'Samples', 'tests': 'Tests', 'manifest': 'West manifest', 'docs': 'Documentation', 'other': 'Other changes',
+    'samples': 'Samples', 'tests': 'Tests', 'manifest': 'West manifest', 'kernel': 'Kernel & architecture', 'docs': 'Documentation', 'other': 'Other changes',
 }
 UTC = dt.timezone.utc
 
@@ -350,7 +350,10 @@ def md(s):
     # HTML escape plus escape Markdown punctuation; do not allow upstream text to inject links/HTML.
     return re.sub(r'([\\`*_\[\]#|!~])',r'\\\1',escape(' '.join(str(s).split()),quote=False))
 
-CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'board_change':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'dt_bindings':'bindings', 'subsys':'subsys', 'samples':'samples', 'tests':'tests', 'manifest':'manifest', 'docs':'docs', 'other':'news'}
+CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'board_change':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'dt_bindings':'bindings', 'subsys':'subsys', 'samples':'samples', 'tests':'tests', 'manifest':'manifest', 'kernel':'kernel', 'docs':'docs', 'other':'news'}
+
+# Raw classifier categories are distinct from the 15 public dashboard views.
+DISPLAY_CATEGORIES = {k:v for k,v in CATEGORIES.items() if k != 'board_candidate'}
 
 def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.
@@ -368,10 +371,12 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
     from news_table import render_news_table, subject_categories, render_grouped_news
     from news_groups import GROUPED, group_events, group_unit
     by_category={k:[r for r in rows if r['kind']==k] for k in CATEGORIES}
+    by_category['board_feature'] = [r for r in rows if r['kind'] in ('board_feature','board_candidate')]
+    counts['board_feature'] = len(by_category['board_feature'])
     group_counts={k:len(group_events(by_category[k], k)) for k in GROUPED}
     related = subject_categories(rows)
     home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'Hardware-focused news from upstream Zephyr. Source evidence is not proof of working hardware.','','<div class="pulse-stats">']
-    for k,v in CATEGORIES.items():
+    for k,v in DISPLAY_CATEGORIES.items():
         unit = group_unit(k) if k in GROUPED else 'events'
         count = group_counts.get(k, counts[k])
         home.append(f'<a href="{k}.html" class="pulse-cat-{k}" title="{count} {unit} · {counts[k]} classified events"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><span class="pulse-stat-count"><strong>{count}</strong> <small class="pulse-stat-unit">{unit}</small></span><span class="pulse-stat-label">{escape(v)}</span></a>')
@@ -380,11 +385,13 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
         home.append(f'<a href="{href}.html">{icon(ico)} {label}</a>')
     home += ['</div>','','<!-- pulse-watchlist-slot -->','','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
     (docs/'index.md').write_text('\n'.join(home))
-    for k,v in CATEGORIES.items():
+    for k,v in DISPLAY_CATEGORIES.items():
         content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else (render_grouped_news(by_category[k], k, statuses, boards, idx, commit_files) if k in GROUPED else render_news_table(by_category[k], statuses, boards, idx, related, category=k)))
         unit = group_unit(k)
         summary = f'{group_counts[k]} {unit} · {counts[k]} classified events' if k in GROUPED else f'{counts[k]} events'
-        (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+summary+' · newest first.\n\n'+content)
+        note = 'Declared capabilities, explicit source changes and possible support are shown together. Possible support is not confirmed hardware support. Shared folder evidence is not target-specific.\n\n' if k == 'board_feature' else ''
+        (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+note+summary+' · newest first.\n\n'+content)
+    (docs/'board_candidate.md').write_text(front+'# Board capability changes\n\nPossible board support is now included in [Board capability changes](board_feature.md).\n\n<div data-pulse-legacy-board-candidate></div>\n')
     if dynamic_news:
         fallback = ['<noscript><ul>']
         for r in db.execute('SELECT * FROM commits ORDER BY committed DESC,sha'):

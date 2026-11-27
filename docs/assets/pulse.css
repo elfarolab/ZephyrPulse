@@ -435,3 +435,7 @@ tr:is(.pulse-fresh-last,.pulse-fresh-recent,.pulse-fresh-today)>td {background-c
 .pulse-search-result>.pulse-fresh-badge {float:left;margin-top:.25rem;}
 .pulse-universal-dialog .pulse-fresh-badge {margin-inline-end:.35rem;}
 .pulse-universal-event>.pulse-fresh-badge {float:left;margin:.47rem .35rem 0 .2rem;}
+
+.pulse-i-kernel{--pulse-icon:url("icons/kernel.svg");}
+.pulse-cat-kernel{--pulse-category:#7757b3;}
+[data-md-color-scheme="slate"] .pulse-cat-kernel{--pulse-category:#c4b5fd;}

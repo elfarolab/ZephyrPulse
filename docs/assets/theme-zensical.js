@@ -21,7 +21,7 @@
 /* Shared semantic link icons for static Markdown and browser-generated content.
  * Preserve link text, destinations, event handlers and existing category icons. */
 ((global)=>{
-  const categories={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',dt_bindings:'bindings',subsys:'subsys',samples:'samples',tests:'tests',manifest:'manifest',docs:'docs',other:'news',all:'news'};
+  const categories={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',dt_bindings:'bindings',subsys:'subsys',samples:'samples',tests:'tests',manifest:'manifest',kernel:'kernel',docs:'docs',other:'news',all:'news'};
   const scope='.md-content, .pulse-universal-dialog, .md-sidebar--primary';
   function kind(a){
     const raw=a.getAttribute('href')||'';

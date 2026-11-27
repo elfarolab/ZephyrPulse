@@ -6,7 +6,7 @@
   const lists=['boards','vendors','peripherals','requirements','selected'];
   const text=['baseline','search','explorer_search','vendor','hardware_query','hardware_vendor','hardware_capability'];
   const flags=['matches_only','explorer_watched','hardware_watched'];
-  const choices={comparison_rows:['all','required','differences'],theme:['default','light','dark'],hardware_kind:['all','target','board_feature','board_candidate','board','board_change','sensor','driver','soc','dts','dt_bindings','subsys','samples','tests','manifest','docs','other','pr','vendor','release']};
+  const choices={comparison_rows:['all','required','differences'],theme:['default','light','dark'],hardware_kind:['all','target','board_feature','board_candidate','board','board_change','sensor','driver','soc','dts','dt_bindings','subsys','samples','tests','manifest','kernel','docs','other','pr','vendor','release']};
   function clean(value){
     const out={}; if(!value||typeof value!=='object'||Array.isArray(value))return out;
     for(const k of lists) if(Array.isArray(value[k])&&value[k].every(x=>typeof x==='string')) out[k]=[...new Set(value[k].map(x=>x.trim()).filter(x=>x&&x.length<=512))].slice(0,k==='selected'?8:200);

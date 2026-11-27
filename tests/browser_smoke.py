@@ -41,7 +41,7 @@ def main():
         scripts=''.join(f'<script src="assets/{s}.js"></script>' for s in ['theme-zensical','preferences','table-controls','intelligence','comparator','hardware-search','news'])
         import sys
         sys.path.insert(0,str(ROOT))
-        from pulse import CATEGORIES
+        from pulse import DISPLAY_CATEGORIES
         from news_table import render_news_table, render_category_summary
         news_fixture=render_news_table([dict(event(f'Event {i:03d}'),committed=f'2026-01-01T10:{i%60:02d}:00Z',commit_subject=f'Headline {i:03d}') for i in range(205)])
         for name,body in {'index':'<div id="pulse-home-watch"></div><div id="pulse-home-fallback">server fallback</div><section id="global">mcxn947 ra8p1 unwatched</section>','compare':'<div id="pulse-comparator"></div>','settings':'<div id="pulse-settings"></div>','watchlist':'<div id="pulse-watchlist"></div>','hardware-search':'<div id="pulse-hardware-search"></div>','news':news_fixture,'board':news_fixture,'grouped':render_category_summary([event('mcxn947'),event('ra8p1')],{},{},{})}.items():
@@ -71,7 +71,7 @@ def main():
             page.get_by_label('Filter news').fill('');page.get_by_label('Sort by').select_option('subject');assert 'Event 000' in page.locator('.pulse-news-row:visible').first.inner_text();assert not errors,errors
             page.goto(base+'board.html?subject=Event%20042');page.get_by_role('button',name='Clear subject filter').wait_for();assert page.locator('.pulse-news-row:visible').count()==1
             page.locator('.pulse-news-row:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==100
-            page.goto(base+'grouped.html');assert page.locator('.pulse-category-group').count()==len(CATEGORIES);assert page.locator('.pulse-news-row:visible').count()==0
+            page.goto(base+'grouped.html');assert page.locator('.pulse-category-group').count()==len(DISPLAY_CATEGORIES);assert page.locator('.pulse-news-row:visible').count()==0
             group=page.locator('.pulse-category-group.pulse-cat-board');group.locator('summary strong').click();assert group.locator('.pulse-news-row:visible').count()==2
             group.locator('.pulse-news-row:visible .pulse-category-link').first.click();page.wait_for_url(base+'board.html');assert not errors,errors
             browser.close()

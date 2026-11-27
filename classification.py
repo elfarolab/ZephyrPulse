@@ -3,7 +3,7 @@ from pathlib import PurePosixPath
 import re
 
 # Increment only when classification semantics change, not on unrelated releases.
-VERSION = '2'
+VERSION = '3'
 
 
 def path_category(path):
@@ -18,6 +18,8 @@ def path_category(path):
         return 'tests', 'Test change'
     if path.startswith('subsys/'):
         return 'subsys', 'Subsystem change'
+    if path.startswith(('kernel/', 'arch/', 'include/zephyr/kernel/', 'include/zephyr/arch/')) or path == 'include/zephyr/kernel.h':
+        return 'kernel', 'Kernel / architecture change'
     if path.startswith(('doc/', 'docs/')) or '/doc/' in path or '/docs/' in path or p.suffix in ('.rst', '.md'):
         return 'docs', 'Documentation'
     if path == 'include/zephyr/devicetree.h' or path.startswith('include/zephyr/devicetree/'):
@@ -40,11 +42,11 @@ def path_category(path):
 
 
 def prefix_category(subject):
-    match = re.match(r'^\s*(dt[-_]bindings|dts|devicetree|drivers?|sensors?|soc|boards?|docs?|documentation|samples?|tests?|subsys)\s*:', subject, re.I)
+    match = re.match(r'^\s*(dt[-_]bindings|dts|devicetree|drivers?|sensors?|soc|boards?|docs?|documentation|samples?|tests?|subsys|kernel|arch)\s*:', subject, re.I)
     if not match:
         return None
     key = match.group(1).lower()
-    return {'dts':'dts', 'devicetree':'dts', 'driver':'driver', 'drivers':'driver', 'sensor':'sensor', 'sensors':'sensor', 'soc':'soc', 'board':'board_change', 'boards':'board_change', 'doc':'docs', 'docs':'docs', 'documentation':'docs','dt-bindings':'dt_bindings','dt_bindings':'dt_bindings','sample':'samples','samples':'samples','test':'tests','tests':'tests','subsys':'subsys'}[key]
+    return {'dts':'dts', 'devicetree':'dts', 'driver':'driver', 'drivers':'driver', 'sensor':'sensor', 'sensors':'sensor', 'soc':'soc', 'board':'board_change', 'boards':'board_change', 'doc':'docs', 'docs':'docs', 'documentation':'docs','dt-bindings':'dt_bindings','dt_bindings':'dt_bindings','sample':'samples','samples':'samples','test':'tests','tests':'tests','subsys':'subsys','kernel':'kernel','arch':'kernel'}[key]
 
 
 def api_doc_only(repo, sha, parent, path):

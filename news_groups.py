@@ -2,14 +2,14 @@
 import re
 from collections import defaultdict
 
-GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change', 'board', 'board_candidate', 'board_feature', 'dt_bindings', 'subsys', 'samples', 'tests', 'manifest'}
+GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change', 'board', 'board_candidate', 'board_feature', 'dt_bindings', 'subsys', 'samples', 'tests', 'manifest', 'kernel'}
 SCOPED = {'soc', 'board_change', 'board', 'board_candidate', 'board_feature'}
 DRIVERS = {'driver', 'sensor'}
 GENERIC = {'main', 'common', 'core', 'init', 'utils', 'util', 'test', 'tests', 'driver', 'drivers', 'config', 'cmakelists', 'kconfig', 'makefile', 'readme', 'sample', 'shell', 'api', 'types', 'module', 'binding', 'bindings', 'build', 'index'}
 
 
 def group_unit(category):
-    return 'capability signals' if category == 'board_feature' else 'commit groups' if category in SCOPED else 'commits'
+    return 'commit groups' if category in SCOPED else 'commits'
 
 
 def unique(values):
@@ -76,12 +76,38 @@ def group_scope(r, category):
     return (), ''
 
 
+def capability_scope(row):
+    subject = row['subject']
+    parts = subject.split('/')
+    path = (row.get('path') or '').split('/')
+    folder = '/'.join(parts[:3]) if len(parts) == 3 and parts[0] == 'boards' else '/'.join(path[:3]) if len(path) >= 4 and path[0] == 'boards' else ''
+    folder_only = bool(folder and subject == folder)
+    return folder, subject, folder_only
+
+
+def evidence_type(row):
+    if row['kind'] == 'board_candidate': return 'Possible support'
+    if row.get('detail','').startswith(('New supported metadata', 'New SoC or variant')): return 'Declared metadata'
+    return 'Explicit source change'
+
+
 def group_events(items, category):
     groups = defaultdict(list)
+    items = [dict(item) for item in items]
+    named = defaultdict(set)
+    if category == 'board_feature':
+        for row in items:
+            folder, subject, folder_only = capability_scope(row)
+            if folder and not folder_only: named[(row['sha'], folder)].add(subject)
     for item in items:
         r = dict(item)
         # Do not merge unrelated boards/SoCs introduced by the same commit.
         scope, _ = group_scope(r, category)
+        if category == 'board_feature':
+            folder, subject, folder_only = capability_scope(r)
+            matches = named[(r['sha'], folder)]
+            if folder_only and len(matches) == 1: subject = next(iter(matches))
+            scope = (folder, subject)
         groups[(r['sha'], scope)].append(r)
     result = []
     for (sha, scope), rows in groups.items():
@@ -92,7 +118,7 @@ def group_events(items, category):
                 files[(r['path'], r.get('source_revision') or sha)].append(r)
         subs, driver = driver_identity(rows) if category in DRIVERS else ('', '')
         result.append(dict(rows=rows, sha=sha, subjects=subjects, files=files,
-                           subsystem=subs, driver=driver, subject=group_scope(rows[0], category)[1] or ', '.join(subjects),
+                           subsystem=subs, driver=driver, subject=scope[1] if category == 'board_feature' else group_scope(rows[0], category)[1] or ', '.join(subjects),
                            types=unique(r.get('change_type') or 'Unknown' for r in rows)))
     return result
 

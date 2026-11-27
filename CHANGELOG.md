@@ -1,3 +1,9 @@
+# v0.3.30 — Unified board capability news and kernel / architecture
+
+- Merge declared board capability and possible board support evidence into the Board capability changes page. Group by commit and named board/target scope, attaching folder-level evidence only when there is one matching named scope for the commit/folder. Keep ambiguous shared-folder evidence separate. Original signals, confidence, paths and complete commit manifests remain available, with an evidence-type filter. Preserve the raw classifier kinds and legacy page URL (redirect with a fallback link).
+- Replace the redundant dashboard card with Kernel & architecture. Classify kernel/, arch/, include/zephyr/kernel/, include/zephyr/arch/ and include/zephyr/kernel.h paths, with conservative title-prefix fallback. Keep fifteen cards and add navigation, search and icon support. Exclude general kernel changes from hardware-specific release inclusion unless a commit also has hardware events.
+- Classifier version 3 refreshes recent events and schedules bounded historical refresh. No database schema change. Shared assets and navigation change; expect a one-time clean render and larger upload.
+
 # v0.3.29 — Rolling commit freshness
 
 - Mark commits from the last four hours with a small yellow `last` sticker in the left expansion column. Apply progressively subtler row tints for ages 0–4, 4–12 and 12–24 hours in both themes.

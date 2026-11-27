@@ -47,13 +47,14 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None,
     out.append('</tr></thead><tbody>')
     for item in items:
         r = dict(item); sha = r['sha']; kind = r['kind']; subject = r['subject']; headline = r.get('commit_subject') or subject
+        page_kind = 'board_feature' if kind == 'board_candidate' else kind
         stamp = r['committed'][:16].replace('T', ' '); confidence = r['confidence'].capitalize()
         rel = statuses.get(sha, r.get('release', {})); release = rel.get('first_release') or ('Not in tracked releases' if rel.get('status') == 'main_only' else 'Unknown')
         ids = r.get('boards') if 'boards' in r else board_ids(r, boards, idx)
         key=resolver.resolve(r,ids)
         if key is not None and key not in ids: ids=[*ids,key]
         linked = [boards[k] for k in ids if k in boards]
-        filter_link=f'<a class="pulse-subject-filter" href="{kind}.html?subject={quote(subject,safe="")}" data-subject="{escape(subject,quote=True)}">{escape(subject)}</a>'
+        filter_link=f'<a class="pulse-subject-filter" href="{page_kind}.html?subject={quote(subject,safe="")}" data-subject="{escape(subject,quote=True)}">{escape(subject)}</a>'
         subject_link=(f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}" title="Open board profile">{escape(subject)}</a>' if key is not None else filter_link)
         vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)
         url = f'{UPSTREAM}/commit/{quote(sha,safe="")}'
@@ -61,7 +62,7 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None,
         typ = r.get('change_type') or 'Unknown'
         out.append(f'<tr class="pulse-news-row pulse-cat-{kind}" data-change-type="{escape(typ,quote=True)}" data-kind="{escape(kind,quote=True)}" data-time="{escape(r["committed"],quote=True)}" data-vendor="{escape(vendors,quote=True)}" data-confidence="{escape(confidence,quote=True)}">')
         out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {escape(subject,quote=True)}"><span aria-hidden="true">▾</span></button></td>')
-        vals = [escape(stamp), f'<a class="pulse-category-link" href="{kind}.html">{icon(CATEGORY_ICONS[kind])} {escape(CATEGORIES[kind])}</a>', subject_link, escape(headline), escape(confidence), escape(release), escape(sha[:10])]
+        vals = [escape(stamp), f'<a class="pulse-category-link" href="{page_kind}.html">{icon(CATEGORY_ICONS[kind])} {escape(CATEGORIES[kind])}</a>', subject_link, escape(headline), escape(confidence), escape(release), escape(sha[:10])]
         for i, _ in columns:
             val = vals[i]
             if category and i == 5 and release == 'Not in tracked releases': val='Not in tags'
@@ -96,13 +97,13 @@ def subject_categories(items):
 
 def render_category_summary(items, statuses, boards, idx, preview=3):
     """Bound the homepage DOM while retaining direct access to every event."""
-    from pulse import CATEGORIES, CATEGORY_ICONS, icon
-    groups = {k: [] for k in CATEGORIES}
+    from pulse import DISPLAY_CATEGORIES, CATEGORY_ICONS, icon
+    groups = {k: [] for k in DISPLAY_CATEGORIES}
     for r in items:
-        groups[r['kind']].append(r)
+        groups['board_feature' if r['kind']=='board_candidate' else r['kind']].append(r)
     related = subject_categories(items)
     out = ['<div class="pulse-category-summary">']
-    for k, label in CATEGORIES.items():
+    for k, label in DISPLAY_CATEGORIES.items():
         rows = groups[k]
         latest = rows[0]['committed'][:16].replace('T', ' ')+' UTC' if rows else 'No recent events'
         out.append(f'<details class="pulse-category-group pulse-cat-{k}"><summary><span class="pulse-category-name"><a class="pulse-category-link" href="{k}.html">{icon(CATEGORY_ICONS[k])} {escape(label)}</a></span><strong>{len(rows)}</strong><span class="pulse-category-latest">{escape(latest)}</span></summary>')
@@ -115,7 +116,7 @@ def render_category_summary(items, statuses, boards, idx, preview=3):
 
 def render_grouped_news(items, category, statuses=None, boards=None, idx=None, commit_files=None, board_context=False):
     import json
-    from news_groups import group_events, manifest_files, DRIVERS, SCOPED, group_unit
+    from news_groups import group_events, manifest_files, DRIVERS, SCOPED, group_unit, evidence_type
     from pulse import UPSTREAM, CATEGORIES, CATEGORY_ICONS, icon
     from intelligence import board_ids, folder_index
     from board_links import BoardLinks, profile_url
@@ -158,7 +159,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         kinds = list(dict.fromkeys(e['kind'] for e in rows))
         category_text = ', '.join(CATEGORIES[k] for k in kinds) if mixed else CATEGORIES[category]
         if board_context and all(e.get('manifest_only') for e in rows): category_text = 'Board maintenance · Direct board-folder change'
-        data = {'kind':r['kind'] if mixed else category,'kinds':json.dumps(kinds),'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(list(dict.fromkeys([*g['subjects'],g['subject']]))),'scope':g['subject'] if category in SCOPED else '','subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows)}
+        data = {'kind':r['kind'] if mixed else category,'kinds':json.dumps(kinds),'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(list(dict.fromkeys([*g['subjects'],g['subject']]))),'scope':g['subject'] if category in SCOPED else '','subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows),'evidence-types':json.dumps(list(dict.fromkeys(evidence_type(e) for e in rows))) if category=='board_feature' else '[]'}
         attrs = ' '.join(f'data-{k}="{attr(v)}"' for k,v in data.items())
         out.append(f'<tr class="pulse-news-row pulse-cat-{r["kind"] if mixed else category}" {attrs}>')
         out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {attr(headline)}"><span aria-hidden="true">▾</span></button></td>')
@@ -167,11 +168,11 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
             v=vals[i]
             cell = expand_button(v) if i in (3,6) else escape('Not in tags' if i==5 and v=='Not in tracked releases' else v)
             if i==1 and mixed: cell = escape(category_text) if board_context and all(e.get('manifest_only') for e in rows) else ' · '.join(icon(CATEGORY_ICONS[k])+' '+escape(CATEGORIES[k]) for k in kinds)
-            if i==2 and category in {'board','board_candidate','board_change','board_feature'} and g['subjects']==[v]:
-                key=resolver.resolve(r, ids)
+            if i==2 and category in {'board','board_candidate','board_change','board_feature'} and (g['subjects']==[v] or category=='board_feature'):
+                key=resolver.resolve(next((e for e in rows if e['subject']==v),r), ids)
                 if key is not None: cell=f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}">{escape(v)}</a>'
             if i==2 and category=='board_feature':
-                cell+=f'<span class="pulse-signal-preview">{escape(r["detail"])} · {escape(r["confidence"])}</span>'
+                cell+='<span class="pulse-signal-preview">'+escape(' · '.join(dict.fromkeys(evidence_type(e) for e in rows)))+' · '+escape(' / '.join(dict.fromkeys(e["detail"] for e in rows)))+'</span>'
             sort_value = f' data-sort-value="{file_count}"' if i==4 else f' data-sort-value="{attr(v)}"' if i==2 and category=='board_feature' else ''
             out.append(f'<td class="pulse-news-col-{i}" title="{attr(v)}"{sort_value}>{cell}</td>')
         out.append('</tr>')
@@ -192,11 +193,11 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
             out.append('<li>'+action(path,url,'github')+(' · '+escape(note) if note else '')+(' (before removal)' if revision!=sha else ''))
             if evidence: out.append('<ul>')
             for e in evidence:
-                out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
+                out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else escape(evidence_type(e))+" · " if category=="board_feature" else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
             if evidence: out.append('</ul>')
             out.append('</li>')
         for e in rows:
-            if not e.get('path'): out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
+            if not e.get('path'): out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else escape(evidence_type(e))+" · " if category=="board_feature" else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
         links = [action('View upstream commit',f'{UPSTREAM}/commit/{quote(sha,safe="")}','commit')]
         out.append('</ul><p class="pulse-news-links">'+' '.join(links)+'</p></article></td></tr>')
     out.append('</tbody></table></div></div>')

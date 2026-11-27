@@ -65,7 +65,7 @@ class ClassificationTests(TestCase):
         self.git('commit','--allow-empty','-m','empty commit'); empty=self.git('rev-parse','HEAD'); self.assertEqual(self.collect_head(empty)[0]['path'],'')
 
     def test_new_categories_path_priority_and_migration(self):
-        from pulse import CATEGORIES
+        from pulse import DISPLAY_CATEGORIES
         from news_groups import recent_files, group_events
         from classification import prefix_category
         paths = {
@@ -76,6 +76,8 @@ class ClassificationTests(TestCase):
             'include/zephyr/dt-bindings/gpio/example.h': ('dt_bindings','#define FLAG 1'),
             'dts/bindings/gpio/example.yaml': ('dt_bindings','compatible: "example,gpio"'),
             'west.yml': ('manifest','manifest:\n  projects: []'),
+            'kernel/example.c': ('kernel','/* kernel */'),
+            'arch/arm/arch_example.c': ('kernel','/* arch */'),
         }
         self.assertIsNone(prefix_category('west: update command implementation'))
         for path, (_, content) in paths.items(): self.put(path,content)
@@ -90,11 +92,14 @@ class ClassificationTests(TestCase):
         self.assertEqual(self.collect_head(sha),events)
         docs=self.root/'docs'; manifests=recent_files(self.db,self.g)
         render(self.db,docs,dt.datetime.now(UTC),72,'https://example.invalid/',commit_files=manifests)
-        self.assertEqual(len(CATEGORIES),15)
+        self.assertEqual(len(DISPLAY_CATEGORIES),15)
+        home=(docs/'index.md').read_text()
+        self.assertIn('href="kernel.html"',home); self.assertNotIn('href="board_candidate.html"',home)
+        self.assertIn('data-pulse-legacy-board-candidate',(docs/'board_candidate.md').read_text())
         for kind in {k for k,_ in paths.values()}:
             self.assertEqual(len(group_events([e for e in events if e['kind']==kind],kind)),1)
             text=(docs/(kind+'.md')).read_text()
-            self.assertIn('Affected files (7) — complete commit',text)
+            self.assertIn('Affected files (9) — complete commit',text)
             self.assertIn('data-news-column="4">Files',text)
             self.assertNotIn('data-news-column="1"',text)
         self.put('scripts/west_commands/example.py','print(1)')
