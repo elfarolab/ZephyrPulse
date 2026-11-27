@@ -26,8 +26,9 @@ ROOT = Path(__file__).resolve().parent
 UPSTREAM = 'https://github.com/zephyrproject-rtos/zephyr'
 CATEGORIES = {
     'board_feature': 'Board capability changes', 'board_candidate': 'Possible board support',
-    'board': 'New boards', 'board_change': 'Board maintenance', 'sensor': 'Sensors', 'driver': 'Drivers', 'soc': 'SoCs',
-    'dts': 'Devicetree', 'docs': 'Documentation', 'other': 'Other changes',
+    'board': 'New boards', 'board_change': 'Board maintenance', 'soc': 'SoCs',
+    'sensor': 'Sensors', 'driver': 'Drivers', 'dts': 'Devicetree', 'dt_bindings': 'DT bindings', 'subsys': 'Subsystems',
+    'samples': 'Samples', 'tests': 'Tests', 'manifest': 'West manifest', 'docs': 'Documentation', 'other': 'Other changes',
 }
 UTC = dt.timezone.utc
 
@@ -238,7 +239,7 @@ def classify(repo, sha, parent, changes, subject=None):
         if path.startswith('dts/bindings/') and p.suffix in ('.yaml','.yml'):
             old = yload(repo.blob(parent,oldpath)); new = yload(repo.blob(sha,path)); compat = new.get('compatible')
             if isinstance(compat,str) and compat != old.get('compatible'):
-                add('dts',compat,'New or changed devicetree binding compatible.',path)
+                add('dt_bindings',compat,'New or changed devicetree binding compatible.',path)
                 new_compat[compat] = path
                 if '/sensor/' in path: add('sensor',compat,'Sensor binding introduced; does not prove a driver exists.',path,'candidate')
         if path.startswith('drivers/') and p.suffix in ('.c','.cpp'):
@@ -349,7 +350,7 @@ def md(s):
     # HTML escape plus escape Markdown punctuation; do not allow upstream text to inject links/HTML.
     return re.sub(r'([\\`*_\[\]#|!~])',r'\\\1',escape(' '.join(str(s).split()),quote=False))
 
-CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'board_change':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'docs':'docs', 'other':'news'}
+CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'board_change':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'dt_bindings':'bindings', 'subsys':'subsys', 'samples':'samples', 'tests':'tests', 'manifest':'manifest', 'docs':'docs', 'other':'news'}
 
 def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.

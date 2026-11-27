@@ -455,7 +455,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     if not policy.get('series'): release_lines += ['| — | Not configured | — |']
     release_lines += ['','Planned releases are listed separately in the official policy; a plan does not imply a release exists.']
     from news_table import render_grouped_news
-    hardware_rows=[r for r in rows if r['kind'] not in ('other','docs')]
+    hardware_rows=[r for r in rows if r['kind'] not in ('other','docs','subsys','samples','tests','manifest')]
     if dynamic_news:
         grouped = defaultdict(list)
         for r in hardware_rows: grouped[r['sha']].append(r)

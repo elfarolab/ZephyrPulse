@@ -35,7 +35,7 @@ class ClassificationTests(TestCase):
         sha=self.commit('dts: change DT_NODE_HAS_STATUS'); self.assertEqual(self.collect_head(sha)[0]['change_type'],'API change')
 
     def test_existing_subsystem_changes_and_no_fake_milestones(self):
-        paths={'drivers/adc/acme/adc.c':'driver','drivers/sensor/acme/temp.c':'sensor','soc/acme/chip/clock.c':'soc','dts/bindings/sensor/acme,temp123.yaml':'dts','scripts/dts/gen_defines.py':'dts','doc/existing.rst':'docs',self.board+'Kconfig.kit':'board_change'}
+        paths={'drivers/adc/acme/adc.c':'driver','drivers/sensor/acme/temp.c':'sensor','soc/acme/chip/clock.c':'soc','dts/bindings/sensor/acme,temp123.yaml':'dt_bindings','scripts/dts/gen_defines.py':'dts','doc/existing.rst':'docs',self.board+'Kconfig.kit':'board_change'}
         for p in paths:
             if p.endswith('.yaml'): continue
             self.put(p,'old\n')
@@ -57,12 +57,49 @@ class ClassificationTests(TestCase):
         rows=json.loads((docs/'data/news-view.json').read_text())['events']; self.assertTrue(any(e['change_type']=='Binding change' for e in rows))
 
     def test_source_links_and_prefix_priority(self):
-        self.put('subsys/misc/a.c','a'); sha=self.commit('dts: unknown path'); e=self.collect_head(sha)[0]; self.assertEqual((e['kind'],e['confidence'],e['path']),('dts','candidate','subsys/misc/a.c'))
+        self.put('subsys/misc/a.c','a'); sha=self.commit('dts: unknown path'); e=self.collect_head(sha)[0]; self.assertEqual((e['kind'],e['confidence'],e['path']),('subsys','observed','subsys/misc/a.c'))
         self.put('drivers/adc/a.c','a'); sha=self.commit('dts: misleading prefix'); self.assertEqual(self.collect_head(sha)[0]['kind'],'driver')
-        self.put('subsys/misc/a.c','b'); sha=self.commit('unrelated change'); e=self.collect_head(sha)[0]; self.assertEqual((e['kind'],e['path']),('other','subsys/misc/a.c'))
+        self.put('subsys/misc/a.c','b'); sha=self.commit('unrelated change'); e=self.collect_head(sha)[0]; self.assertEqual((e['kind'],e['path']),('subsys','subsys/misc/a.c'))
         self.git('rm','subsys/misc/a.c'); removed=self.commit('remove unused code'); e=self.collect_head(removed)[0]; self.assertEqual(e['source_revision'],sha)
         e.update(committed='2026-11-27T02:28:00Z'); html=render_news_table([e]); self.assertIn('/blob/'+sha+'/subsys/misc/a.c',html); self.assertIn('before removal',html)
         self.git('commit','--allow-empty','-m','empty commit'); empty=self.git('rev-parse','HEAD'); self.assertEqual(self.collect_head(empty)[0]['path'],'')
+
+    def test_new_categories_path_priority_and_migration(self):
+        from pulse import CATEGORIES
+        from news_groups import recent_files, group_events
+        from classification import prefix_category
+        paths = {
+            'samples/drivers/gpio/sample.yaml': ('samples','name: example'),
+            'samples/sensor/example/board.overlay': ('samples','&gpio0 {};'),
+            'tests/lib/devicetree/test.c': ('tests','/* test */'),
+            'subsys/net/lib/sockets/socket.c': ('subsys','/* socket */'),
+            'include/zephyr/dt-bindings/gpio/example.h': ('dt_bindings','#define FLAG 1'),
+            'dts/bindings/gpio/example.yaml': ('dt_bindings','compatible: "example,gpio"'),
+            'west.yml': ('manifest','manifest:\n  projects: []'),
+        }
+        self.assertIsNone(prefix_category('west: update command implementation'))
+        for path, (_, content) in paths.items(): self.put(path,content)
+        sha=self.commit('drivers: deliberately misleading title')
+        events=self.collect_head(sha)
+        self.assertEqual({e['path']:e['kind'] for e in events}, {p:k for p,(k,_) in paths.items()})
+        self.assertTrue(all(e['confidence']=='observed' for e in events))
+        # Simulate the old retained classification and trigger migration without a new commit.
+        with self.db:
+            self.db.execute("UPDATE state SET value='1' WHERE key='news_classifier_version'")
+            self.db.execute("UPDATE events SET kind='other' WHERE sha=?",(sha,))
+        self.assertEqual(self.collect_head(sha),events)
+        docs=self.root/'docs'; manifests=recent_files(self.db,self.g)
+        render(self.db,docs,dt.datetime.now(UTC),72,'https://example.invalid/',commit_files=manifests)
+        self.assertEqual(len(CATEGORIES),15)
+        for kind in {k for k,_ in paths.values()}:
+            self.assertEqual(len(group_events([e for e in events if e['kind']==kind],kind)),1)
+            text=(docs/(kind+'.md')).read_text()
+            self.assertIn('Affected files (7) — complete commit',text)
+            self.assertIn('data-news-column="4">Files',text)
+            self.assertNotIn('data-news-column="1"',text)
+        self.put('scripts/west_commands/example.py','print(1)')
+        tooling=self.commit('west: update command implementation')
+        self.assertEqual(self.collect_head(tooling)[0]['kind'],'other')
 
     def test_semantic_events_not_duplicated(self):
         self.put('drivers/adc/acme_adc.c','#define DT_DRV_COMPAT acme_adc\n'); sha=self.commit('drivers: new ADC'); events=self.collect_head(sha)

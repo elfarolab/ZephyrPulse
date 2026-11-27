@@ -100,9 +100,9 @@ def main():
             render(db,docs,dt.datetime.now(UTC),72,'https://example.invalid/');db.close()
             dashboard=re.search(r'<div class="pulse-stats">.*?</div>',(docs/'index.md').read_text(),re.S).group()
         page.evaluate('html=>{document.body.innerHTML=html}',dashboard)
-        assert page.locator('.pulse-stats a').count()==10;assert page.locator('.pulse-stats a[href="other.html"]').count()==1
+        assert page.locator('.pulse-stats a').count()==15;assert page.locator('.pulse-stats a[href="other.html"]').count()==1
         for width,columns in ((2048,5),(1440,5),(1024,5),(390,2),(320,1)):
-            page.set_viewport_size({'width':width,'height':900});assert_grid_rows(page.locator('.pulse-stats a'), columns, 10)
+            page.set_viewport_size({'width':width,'height':900});assert_grid_rows(page.locator('.pulse-stats a'), columns, 15)
         # Exercise the actual settings builder and fieldset geometry without a server.
         page.evaluate("""()=>{document.body.innerHTML='<div id="pulse-settings"></div>';window.fetch=async()=>({ok:true,json:async()=>({preferences:{},watchlist:{},comparison:{snapshots:[]}})});}""")
         page.add_script_tag(content=(ROOT/'docs/assets/preferences.js').read_text().replace("new URL('../',document.currentScript.src)", "new URL('https://pulse.test/')"))

@@ -13,6 +13,7 @@ class TableLayoutTests(TestCase):
             'board_candidate':[0,2,3,4,5,6], 'board_change':[0,2,3,4,5,6],
             'board_feature':[0,2,3,4,5,6], 'dts':[0,3,4,5,6],
             'docs':[0,3,4,5,6], 'other':[0,3,4,5,6],
+            **{k:[0,3,4,5,6] for k in ('dt_bindings','subsys','samples','tests','manifest')},
             'all':[0,1,3,4,5,6], 'release_news':[0,1,3,4,5,6],
         }
         self.assertEqual(GROUPED, set(expected)-{'all','release_news'})

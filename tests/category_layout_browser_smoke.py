@@ -54,6 +54,13 @@ def main():
             assert page.get_by_label('Category',exact=True).is_visible()
             page.get_by_label('Category',exact=True).select_option('docs');expect(visible).to_have_count(1);expect(visible.first.locator('.pulse-news-col-1')).to_contain_text('Documentation')
             page.get_by_label('Category',exact=True).select_option('driver');expect(visible).to_have_count(1);expect(visible.first.locator('.pulse-news-col-1')).to_contain_text('Drivers')
+            for category in ('dt_bindings','subsys','samples','tests','manifest'):
+                mount(category,[dict(a,kind=category),dict(c,kind=category),dict(b,kind=category)],static)
+                expect(visible).to_have_count(2);expect(page.locator('thead th')).to_have_count(6)
+                assert not page.get_by_label('Category',exact=True).is_visible()
+                page.get_by_role('button',name='Files',exact=True).click();expect(visible.first.locator('.pulse-news-col-4')).to_have_text('1')
+                page.get_by_role('button',name='Files',exact=True).click();expect(visible.first.locator('.pulse-news-col-4')).to_have_text('4')
+                visible.first.locator('.pulse-news-col-6 button').click();expect(page.locator('.pulse-news-detail:visible .pulse-affected-files > li')).to_have_count(4)
             mount('board_feature',[board_event,dict(board_event,detail='New supported metadata entry: spi')],static)
             expect(visible).to_have_count(2);expect(page.locator('.pulse-signal-preview')).to_have_count(2)
             expect(page.locator('.pulse-board-profile-link')).to_have_count(2)

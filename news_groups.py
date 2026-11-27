@@ -2,7 +2,7 @@
 import re
 from collections import defaultdict
 
-GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change', 'board', 'board_candidate', 'board_feature'}
+GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change', 'board', 'board_candidate', 'board_feature', 'dt_bindings', 'subsys', 'samples', 'tests', 'manifest'}
 SCOPED = {'soc', 'board_change', 'board', 'board_candidate', 'board_feature'}
 DRIVERS = {'driver', 'sensor'}
 GENERIC = {'main', 'common', 'core', 'init', 'utils', 'util', 'test', 'tests', 'driver', 'drivers', 'config', 'cmakelists', 'kconfig', 'makefile', 'readme', 'sample', 'shell', 'api', 'types', 'module', 'binding', 'bindings', 'build', 'index'}

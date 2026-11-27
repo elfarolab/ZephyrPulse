@@ -20,7 +20,7 @@ PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP
 BROWSER_TESTS = ('news_browser_smoke.py', 'table_browser_smoke.py', 'browser_smoke.py',
                  'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'board_profile_browser_smoke.py', 'rendered_smoke.py')
 REQUIRED = ('index.html', 'boards.html', 'watchlist.xml', 'intelligence.json',
-            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html')
+            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html', 'dt_bindings.html', 'subsys.html', 'samples.html', 'tests.html', 'manifest.html')
 
 
 def run(cwd, *args):
@@ -63,6 +63,17 @@ def create_upstream(repo):
     (repo / 'doc/driver-note.rst').write_text('Synthetic driver documentation\n')
     run(repo, 'git', 'add', '.')
     run(repo, 'git', 'commit', '-m', 'drivers: i2c: omap: add fixture support')
+    for path, content in {
+        'samples/example/main.c': '/* sample */',
+        'subsys/net/example.c': '/* subsystem */',
+        'tests/example/main.c': '/* test */',
+        'include/zephyr/dt-bindings/example.h': '#define EXAMPLE 1',
+        'west.yml': 'manifest:\n  projects: []\n',
+    }.items():
+        f=repo/path;f.parent.mkdir(parents=True,exist_ok=True);f.write_text(content)
+    run(repo, 'git', 'add', '.')
+    run(repo, 'git', 'commit', '-m', 'synthetic additional news categories')
+
 
 
 def board_hashes(site):
@@ -104,6 +115,8 @@ def exercise(work, extended):
     news = json.loads((site / 'data/news-view.json').read_text())
     if set(news['commit_files']) != {e['sha'] for e in news['events']}:
         raise RuntimeError('Expected complete manifest coverage for synthetic commits')
+    if not {'samples','subsys','tests','dt_bindings','manifest'} <= {e['kind'] for e in news['events']}:
+        raise RuntimeError('Missing new category fixture events')
     drivers = [e for e in news['events'] if e['kind'] == 'driver']
     if len(drivers) != 2 or len({e['sha'] for e in drivers}) != 1:
         raise RuntimeError('Expected two raw driver events from one fixture commit')

@@ -14,10 +14,10 @@ extra_css = ["assets/pulse.css"]
 extra_javascript = ["assets/theme-zensical.js", "assets/preferences.js", "assets/table-controls.js", "assets/intelligence.js", "assets/comparator.js", "assets/hardware-search.js", "assets/news.js", "assets/universal-search.js"]
 nav = [
   { "Overview" = "index.md" },
-  { "Hardware" = [{ "Board capability changes" = "board_feature.md" }, { "Possible board support" = "board_candidate.md" }, { "New boards" = "board.md" }, { "Board maintenance" = "board_change.md" }, { "SoCs" = "soc.md" }, { "Sensors" = "sensor.md" }, { "Drivers" = "driver.md" }, { "Devicetree" = "dts.md" }] },
+  { "Hardware" = [{ "Board capability changes" = "board_feature.md" }, { "Possible board support" = "board_candidate.md" }, { "New boards" = "board.md" }, { "Board maintenance" = "board_change.md" }, { "SoCs" = "soc.md" }, { "Sensors" = "sensor.md" }, { "Drivers" = "driver.md" }, { "Devicetree" = "dts.md" }, { "DT bindings" = "dt_bindings.md" }] },
   { "Explore" = [{ "Board explorer" = "boards.md" }, { "Hardware search" = "hardware-search.md" }, { "Compare hardware" = "compare.md" }] },
   { "Intelligence" = [{ "Vendor activity" = "vendors.md" }, { "Releases / LTS" = "releases.md" }, { "Upcoming PRs" = "upcoming.md" }] },
-  { "More news" = [{ "Documentation" = "docs.md" }, { "Other changes" = "other.md" }, { "All commits" = "all.md" }] },
+  { "More news" = [{ "Subsystems" = "subsys.md" }, { "Samples" = "samples.md" }, { "Tests" = "tests.md" }, { "West manifest" = "manifest.md" }, { "Documentation" = "docs.md" }, { "Other changes" = "other.md" }, { "All commits" = "all.md" }] },
   { "Personal" = [{ "Watchlist" = "watchlist.md" }, { "Settings" = "settings.md" }] },
 ]
 

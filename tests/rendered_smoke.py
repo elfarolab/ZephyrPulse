@@ -52,16 +52,25 @@ def main():
             assert page.locator('script[src*="assets/theme-zensical.js?pulse_v="]').count()==1
             assert page.locator('link[href*="assets/pulse.css?pulse_v="]').count()==1
             page.evaluate('window.scrollTo(0,0)');home.click();page.wait_for_url(base+'index.html');page.set_viewport_size({'width':1440,'height':900});page.locator('.md-tabs').wait_for(state='visible');page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();page.evaluate('window.scrollTo(0,0)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();assert not page.locator('.md-sidebar--secondary').count() or not page.locator('.md-sidebar--secondary').is_visible();page.locator('#pulse-home-watch').get_by_text('Your browser watchlist').wait_for();assert page.get_by_role('link',name='Hardware search',exact=True).count()>0
-            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==10
+            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==15
             assert page.locator('.pulse-tools a .pulse-icon').count()==4
             assert page.locator('.md-tabs__link .pulse-icon').count()==6
             assert not page.locator('.md-sidebar--primary').count() or not page.locator('.md-sidebar--primary').is_visible()
             assert page.locator('.pulse-stats .pulse-icon').first.evaluate("el=>getComputedStyle(el).maskImage!=='none'")
             assert page.locator('.md-header__button.md-logo:visible').count()==0
             assert page.locator('.pulse-category-summary').count()==0
-            assert_grid_rows(page.locator('.pulse-stats a'), 5, 10)
-            page.locator('.pulse-stats a[href="other.html"]').click();page.wait_for_url(base+'other.html');page.goto(base+'index.html')
-            page.set_viewport_size({'width':390,'height':844});assert_grid_rows(page.locator('.pulse-stats a'), 2, 10)
+            assert_grid_rows(page.locator('.pulse-stats a'), 5, 15)
+            for category in ('dt_bindings','subsys','samples','tests','manifest','other'):
+                page.locator(f'.pulse-stats a[href="{category}.html"]').click();page.wait_for_url(base+category+'.html')
+                brand=page.get_by_role('link',name='Zephyr Pulse home');expect(brand).to_be_visible()
+                if category!='other': expect(page.locator('.pulse-news-row:visible')).to_have_count(1)
+                page.evaluate("document.querySelector('main').style.minHeight='250vh';window.scrollTo(0,document.body.scrollHeight)")
+                page.wait_for_function("window.scrollY > 0")
+                expect(brand).to_be_visible();expect(brand).to_have_text('Zephyr Pulse')
+                assert brand.evaluate("el=>getComputedStyle(el.closest('.md-header__topic')).opacity")=='1'
+                brand.click();page.wait_for_url(base+'index.html')
+
+            page.set_viewport_size({'width':390,'height':844});assert_grid_rows(page.locator('.pulse-stats a'), 2, 15)
             page.set_viewport_size({'width':1920,'height':1000});assert page.locator('.md-main__inner').evaluate('el=>el.getBoundingClientRect().width') <= 1920*.72
             page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog a').filter(has_text=re.compile(r'^kit/chip$')).locator("xpath=self::a[preceding-sibling::h3[1][starts-with(normalize-space(.), 'Board targets (')]]").wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0

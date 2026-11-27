@@ -18,10 +18,18 @@ def main():
             if shutil.which('chromium'):args['executable_path']=shutil.which('chromium')
             browser=pw.chromium.launch(**args);page=browser.new_page(viewport={'width':1440,'height':900});page.set_default_timeout(5000)
             errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-            page.set_content('''<html><head><base href="https://fixture.invalid/boards/kit.html"></head><body><header><a class="md-header__button md-logo" href="../index.html">Logo</a><div class="md-header__title"><div class="md-header__topic"><span class="md-ellipsis">Zephyr Pulse</span></div></div><a id="repo" href="https://github.com/zephyrproject-rtos/zephyr">Upstream Zephyr</a></header><main class="md-content md-typeset">'''+markup+'</main></body></html>')
+            page.set_content('''<html><head><base href="https://fixture.invalid/boards/kit.html"></head><body><header><a class="md-header__button md-logo" href="../index.html">Logo</a><div class="md-header__title"><div class="md-header__topic"><span class="md-ellipsis">Zephyr Pulse</span></div><div class="md-header__topic"><span class="md-ellipsis">Other changes</span></div></div><a id="repo" href="https://github.com/zephyrproject-rtos/zephyr">Upstream Zephyr</a></header><main class="md-content md-typeset">'''+markup+'</main></body></html>')
             page.add_style_tag(path=ROOT/'docs/assets/pulse.css')
             for name in ('theme-zensical.js','table-controls.js','news.js'):page.add_script_tag(path=ROOT/'docs/assets'/name)
             home=page.get_by_role('link',name='Zephyr Pulse home');expect(home).to_have_attribute('href','https://fixture.invalid/index.html')
+            # Simulate the classic theme's scrolled state, where the second topic
+            # normally replaces the site name. The brand must remain clickable.
+            page.add_style_tag(content=''' .md-header__title--active .md-header__topic:first-child {opacity:0;transform:translateX(-20px);pointer-events:none;} .md-header__title--active .md-header__topic:last-child {opacity:1;} ''')
+            page.evaluate("document.querySelector('.md-header__title').classList.add('md-header__title--active')")
+            expect(home).to_be_visible();expect(page.get_by_text('Other changes',exact=True)).not_to_be_visible()
+            assert home.evaluate("el=>getComputedStyle(el.closest('.md-header__topic')).opacity")=='1'
+            page.evaluate("document.querySelector('.pulse-home-title').addEventListener('click',e=>{e.preventDefault();e.currentTarget.dataset.clicked='yes'})")
+            home.click();expect(home).to_have_attribute('data-clicked','yes')
             expect(page.locator('#repo')).to_have_attribute('target','_blank');expect(page.locator('#repo')).to_have_attribute('rel','noopener noreferrer')
             expect(page.locator('.pulse-board-overview-links a').first).to_have_attribute('target','_blank')
             assert not page.locator('.pulse-board-overview-meta dd a').first.get_attribute('target')

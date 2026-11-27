@@ -1,13 +1,13 @@
 /* Portable news table: no framework, all rows and evidence in the static HTML. */
 (()=>{'use strict';
 const node=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
-const labels={board_feature:'Board capability changes',board_candidate:'Possible board support',board:'New boards',board_change:'Board maintenance',sensor:'Sensors',driver:'Drivers',soc:'SoCs',dts:'Devicetree',docs:'Documentation',other:'Other changes'};
-const icons={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',docs:'docs',other:'news'};
+const labels={board_feature:'Board capability changes',board_candidate:'Possible board support',board:'New boards',board_change:'Board maintenance',sensor:'Sensors',driver:'Drivers',soc:'SoCs',dts:'Devicetree',dt_bindings:'DT bindings',subsys:'Subsystems',samples:'Samples',tests:'Tests',manifest:'West manifest',docs:'Documentation',other:'Other changes'};
+const icons={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',dt_bindings:'bindings',subsys:'subsys',samples:'samples',tests:'tests',manifest:'manifest',docs:'docs',other:'news'};
 const glyph=name=>{const e=node('span',undefined,'pulse-icon pulse-i-'+name);e.setAttribute('aria-hidden','true');return e;};
 const upstream='https://github.com/zephyrproject-rtos/zephyr';
 const fold=v=>String(v??'').toLowerCase();
 const cmp=(a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
-const groupedCategories=new Set(['driver','sensor','docs','other','dts','soc','board_change','board','board_candidate','board_feature']);
+const groupedCategories=new Set(['driver','sensor','docs','other','dts','soc','board_change','board','board_candidate','board_feature','dt_bindings','subsys','samples','tests','manifest']);
 const scopedCategories=new Set(['soc','board_change','board','board_candidate','board_feature']);
 const driverCategories=new Set(['driver','sensor']);
 const genericDriver=new Set('main common core init utils util test tests driver drivers config cmakelists kconfig makefile readme sample shell api types module binding bindings build index'.split(' '));
@@ -141,5 +141,5 @@ function render(target,events,boards,limit=100,relatedEvents=events,category=nul
   }
   init(root);
 }
-window.PulseNews={init,render,renderGrouped,groupEvents};async function start(){document.querySelectorAll('[data-pulse-news]').forEach(init);const mounts=[...document.querySelectorAll('[data-pulse-category]')];if(!mounts.length)return;try{const {data}=await window.PulsePreferences.load('data/news-view.json');const boards=new Map(data.boards.map(b=>[b.id,b]));for(const m of mounts){const category=m.dataset.pulseCategory,items=category==='all'?data.events:category==='release_news'?data.events.filter(e=>!['docs','other'].includes(e.kind)):data.events.filter(e=>e.kind===category);if(groupedCategories.has(category)||['all','release_news'].includes(category))renderGrouped(m,items,boards,category,data.commit_files||{});else render(m,items,boards,items.length,data.events,category);}}catch(e){for(const m of mounts)m.textContent='News unavailable. Use the raw JSON or All commits link below, or refresh.';}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+window.PulseNews={init,render,renderGrouped,groupEvents};async function start(){document.querySelectorAll('[data-pulse-news]').forEach(init);const mounts=[...document.querySelectorAll('[data-pulse-category]')];if(!mounts.length)return;try{const {data}=await window.PulsePreferences.load('data/news-view.json');const boards=new Map(data.boards.map(b=>[b.id,b]));for(const m of mounts){const category=m.dataset.pulseCategory,items=category==='all'?data.events:category==='release_news'?data.events.filter(e=>!['docs','other','subsys','samples','tests','manifest'].includes(e.kind)):data.events.filter(e=>e.kind===category);if(groupedCategories.has(category)||['all','release_news'].includes(category))renderGrouped(m,items,boards,category,data.commit_files||{});else render(m,items,boards,items.length,data.events,category);}}catch(e){for(const m of mounts)m.textContent='News unavailable. Use the raw JSON or All commits link below, or refresh.';}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();

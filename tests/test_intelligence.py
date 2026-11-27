@@ -42,7 +42,7 @@ class IntelligenceTest(unittest.TestCase):
         events=json.loads((docs/'data/news-view.json').read_text())['events']
         self.assertTrue(any(e.get('board_profile_url')=='boards/'+boards[key]['slug']+'.html' for e in events))
         self.assertIn('boards/'+boards[key]['slug']+'.html',(docs/'releases.md').read_text())
-        self.assertEqual((docs/'index.md').read_text().count('class="pulse-stat-label"'),10)
+        self.assertEqual((docs/'index.md').read_text().count('class="pulse-stat-label"'),15)
         self.assertNotIn('<!-- pulse-watchlist-slot -->',(docs/'index.md').read_text())
     def test_history_retention_and_rewrite(self):
         now=dt.datetime.now(UTC); collect(self.db,self.g,self.base,now,72); boards=inventory(self.g,self.base)

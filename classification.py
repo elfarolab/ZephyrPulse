@@ -3,28 +3,34 @@ from pathlib import PurePosixPath
 import re
 
 # Increment only when classification semantics change, not on unrelated releases.
-VERSION = '1'
+VERSION = '2'
 
 
 def path_category(path):
     p = PurePosixPath(path)
+    if path in ('west.yml', 'west.yaml') or (path.startswith('submanifests/') and p.suffix in ('.yml', '.yaml')):
+        return 'manifest', 'Manifest change'
+    if path.startswith(('dts/bindings/', 'include/zephyr/dt-bindings/')):
+        return 'dt_bindings', 'Binding change'
+    if path.startswith('samples/'):
+        return 'samples', 'Sample change'
+    if path.startswith('tests/'):
+        return 'tests', 'Test change'
+    if path.startswith('subsys/'):
+        return 'subsys', 'Subsystem change'
     if path.startswith(('doc/', 'docs/')) or '/doc/' in path or '/docs/' in path or p.suffix in ('.rst', '.md'):
         return 'docs', 'Documentation'
-    if path.startswith('dts/bindings/'):
-        return 'dts', 'Binding change'
     if path == 'include/zephyr/devicetree.h' or path.startswith('include/zephyr/devicetree/'):
         return 'dts', 'API change'
     if path.startswith(('scripts/dts/', 'cmake/modules/dts')):
         return 'dts', 'Tooling change'
-    if path.startswith(('tests/lib/devicetree/', 'tests/dts/', 'tests/build/devicetree/')):
-        return 'dts', 'Test change'
     if p.suffix in ('.dts', '.dtsi', '.overlay'):
         return 'dts', 'Configuration change'
     if path.startswith('dts/'):
         return 'dts', 'Configuration change'
-    if path.startswith(('drivers/sensor/', 'include/zephyr/drivers/sensor/', 'tests/drivers/sensor/', 'samples/sensor/')) or path == 'include/zephyr/drivers/sensor.h':
+    if path.startswith(('drivers/sensor/', 'include/zephyr/drivers/sensor/')) or path == 'include/zephyr/drivers/sensor.h':
         return 'sensor', 'Sensor change'
-    if path.startswith(('drivers/', 'include/zephyr/drivers/', 'tests/drivers/', 'samples/drivers/')):
+    if path.startswith(('drivers/', 'include/zephyr/drivers/')):
         return 'driver', 'Driver change'
     if path.startswith(('soc/', 'include/zephyr/soc/')):
         return 'soc', 'SoC change'
@@ -34,11 +40,11 @@ def path_category(path):
 
 
 def prefix_category(subject):
-    match = re.match(r'^\s*(dts|devicetree|drivers?|sensors?|soc|boards?|docs?|documentation)\s*:', subject, re.I)
+    match = re.match(r'^\s*(dt[-_]bindings|dts|devicetree|drivers?|sensors?|soc|boards?|docs?|documentation|samples?|tests?|subsys)\s*:', subject, re.I)
     if not match:
         return None
     key = match.group(1).lower()
-    return {'dts':'dts', 'devicetree':'dts', 'driver':'driver', 'drivers':'driver', 'sensor':'sensor', 'sensors':'sensor', 'soc':'soc', 'board':'board_change', 'boards':'board_change', 'doc':'docs', 'docs':'docs', 'documentation':'docs'}[key]
+    return {'dts':'dts', 'devicetree':'dts', 'driver':'driver', 'drivers':'driver', 'sensor':'sensor', 'sensors':'sensor', 'soc':'soc', 'board':'board_change', 'boards':'board_change', 'doc':'docs', 'docs':'docs', 'documentation':'docs','dt-bindings':'dt_bindings','dt_bindings':'dt_bindings','sample':'samples','samples':'samples','test':'tests','tests':'tests','subsys':'subsys'}[key]
 
 
 def api_doc_only(repo, sha, parent, path):
@@ -61,7 +67,7 @@ def path_subject(kind, path, headline):
         if len(set(macros)) == 1: return macros[0]
     if kind == 'board_change' and len(p.parts) >= 4 and p.parts[1] not in ('common','shields','extensions'):
         return p.parts[2]
-    if kind == 'dts' and path.startswith('dts/bindings/') and ',' in p.stem:
+    if kind == 'dt_bindings' and path.startswith('dts/bindings/') and ',' in p.stem:
         return p.stem
     return p.name
 

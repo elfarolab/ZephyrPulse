@@ -21,7 +21,7 @@
 /* Shared semantic link icons for static Markdown and browser-generated content.
  * Preserve link text, destinations, event handlers and existing category icons. */
 ((global)=>{
-  const categories={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',docs:'docs',other:'news',all:'news'};
+  const categories={board_feature:'capability',board_candidate:'candidate',board:'board',board_change:'board',sensor:'sensor',driver:'driver',soc:'cpu',dts:'dts',dt_bindings:'bindings',subsys:'subsys',samples:'samples',tests:'tests',manifest:'manifest',docs:'docs',other:'news',all:'news'};
   const scope='.md-content, .pulse-universal-dialog, .md-sidebar--primary';
   function kind(a){
     const raw=a.getAttribute('href')||'';
@@ -99,11 +99,14 @@
   function title(){
     const topic=document.querySelector('.md-header__title .md-header__topic');
     const text=topic?.querySelector('.md-ellipsis')||topic;
-    if(!text||text.querySelector('a')||text.matches('a'))return;
+    if(!topic||!text)return;
+    const container=topic.closest('.md-header__title');
+    container.classList.add('pulse-brand-header');topic.classList.add('pulse-brand-topic');
+    if(text.querySelector('.pulse-home-title')||text.matches('.pulse-home-title'))return;
     const logo=document.querySelector('a.md-header__button.md-logo[href]');
     const href=home||logo?.href;if(!href)return;
     const a=document.createElement('a');a.className='pulse-home-title';a.href=href;a.setAttribute('aria-label','Zephyr Pulse home');a.title='Zephyr Pulse home';
-    while(text.firstChild)a.append(text.firstChild);text.append(a);
+    a.textContent='Zephyr Pulse';text.replaceChildren(a);
   }
   function start(){title();scan(document);new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'&&r.target.matches('a'))link(r.target);else for(const el of r.addedNodes)scan(el);}}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();

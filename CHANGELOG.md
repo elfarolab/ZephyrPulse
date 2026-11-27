@@ -1,3 +1,10 @@
+# v0.3.27 — Persistent home branding and fifteen news categories
+
+- Keep the Zephyr Pulse home title visible even when the theme switches to its scrolled page-title state. Preserve external-link policy and internal navigation.
+- Add DT bindings, Subsystems, Samples, Tests and West manifest news pages, dashboard cards, sidebar links, search types and icons. Dedicated tables reuse commit grouping, sortable columns and complete changed-file manifests. Desktop dashboard now has three rows of five cards.
+- Classify explicit source paths before generic suffixes and title hints. Binding-compatible evidence moves to DT bindings while sensor introduction signals are retained; samples/tests/subsystems are not evidence of hardware support. Manifest changes identify manifest files, not necessarily a module revision bump. General software categories are excluded from hardware-specific release inclusion unless the commit also has hardware events.
+- Classifier version 2 refreshes recent events atomically and schedules bounded historical refresh; no schema reset. Navigation configuration and assets change, requiring a one-time clean renderer cache build and larger upload.
+
 # v0.3.26 — Activity-first board profiles and external navigation
 
 - Make the text-only header brand a home link, including nested board pages. Open external HTTP(S) links in a new tab with noopener/noreferrer; preserve internal navigation and handle dynamically inserted links.
