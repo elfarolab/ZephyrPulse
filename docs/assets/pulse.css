@@ -403,3 +403,19 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 [data-md-color-scheme="slate"] .pulse-cat-tests {--pulse-category:#d8b4fe;}
 .pulse-cat-manifest {--pulse-category:#8a5d19;}
 [data-md-color-scheme="slate"] .pulse-cat-manifest {--pulse-category:#fcd34d;}
+
+/* Board shortcuts lead expanded commit details; vendor groups retain sortable child tables. */
+.pulse-news-detail-panel .pulse-detail-boards {display:flex;flex-wrap:wrap;gap:.35rem .85rem;margin:0 0 .45rem;font-weight:600;}
+.md-typeset table.pulse-vendor-explorer {display:table;width:100%;border-collapse:collapse;table-layout:auto;font-size:.73rem;}
+.pulse-vendor-explorer th,.pulse-vendor-explorer td {padding:.4rem .55rem;border-bottom:1px solid var(--md-default-fg-color--lightest,#cbd5e1);text-align:left;}
+.pulse-vendor-explorer .pulse-news-expand {width:2rem;padding:0;text-align:center;}
+.pulse-vendor-explorer .pulse-news-toggle {color:var(--md-typeset-a-color,#087e83);}
+.pulse-vendor-group .pulse-commit-expand {font-weight:600;white-space:normal;text-align:left;}
+.pulse-vendor-explorer tr[hidden] {display:none!important;}
+.pulse-vendor-explorer .pulse-vendor-detail>td {padding:.45rem .7rem;}
+.md-typeset table.pulse-vendor-boards {display:table;width:100%;font-size:inherit;border-collapse:collapse;}
+.pulse-vendor-boards td {overflow-wrap:anywhere;}
+.pulse-vendor-boards th,.pulse-vendor-boards td {padding:.4rem .55rem;}
+
+.pulse-vendor-explorer-scroll {max-width:100%;overflow-x:auto;border:1px solid var(--md-default-fg-color--lightest,#cbd5e1);border-radius:.5rem;}
+.pulse-vendor-explorer .pulse-vendor-activity {font-size:.65rem;margin-left:.55rem;white-space:nowrap;}

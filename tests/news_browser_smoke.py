@@ -32,7 +32,7 @@ def main():
         assert not page.locator('.md-header__button.md-logo').is_visible();assert page.get_by_text('Zephyr Pulse',exact=True).is_visible()
         check_geometry(page)
         page.add_script_tag(content=(ROOT/'docs/assets/table-controls.js').read_text());page.add_script_tag(content=(ROOT/'docs/assets/news.js').read_text());assert page.locator('.pulse-news-row:visible').count()==100;assert page.locator('.pulse-news-detail:visible').count()==0
-        first=page.locator('.pulse-news-row:visible').first;first.locator('.pulse-news-col-3').click();assert page.locator('.pulse-news-detail:visible a').count()==3;first.locator('button').press('Enter');assert page.locator('.pulse-news-detail:visible').count()==0
+        first=page.locator('.pulse-news-row:visible').first;first.locator('.pulse-news-col-3').click();assert page.locator('.pulse-news-detail:visible a').count()==2;first.locator('button').press('Enter');assert page.locator('.pulse-news-detail:visible').count()==0
         first.locator('.pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==1;first.locator('.pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==100;page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==100;page.get_by_role('button',name='Next').click();assert page.locator('.pulse-news-row:visible').count()==5
         page.get_by_label('Rows per page').select_option('all');assert page.locator('.pulse-news-row:visible').count()==205
         page.get_by_label('Change type',exact=True).select_option('API documentation');assert page.locator('.pulse-news-row:visible').count()==102
@@ -72,11 +72,13 @@ def main():
             profile.click();assert page.evaluate('window.profileClick')==board['url'];assert page.locator('.pulse-news-row:visible').count()==2
             page.locator('.pulse-news-row').first.locator('.pulse-news-toggle').click()
             actions=page.locator('.pulse-news-detail:visible .pulse-news-links')
-            for glyph in ('commit','github','board','search'):
+            for glyph in ('commit','github'):
                 item=actions.locator('a').filter(has=page.locator('.pulse-i-'+glyph));assert item.count()==1,glyph
                 assert item.locator('.pulse-icon').get_attribute('aria-hidden')=='true'
                 assert item.locator('.pulse-icon').evaluate("el=>getComputedStyle(el).maskImage")!='none'
-            assert actions.locator('a').filter(has=page.locator('.pulse-i-board')).get_attribute('href')==board['url']
+            assert page.locator('.pulse-news-detail:visible .pulse-detail-boards a').get_attribute('href')==board['url']
+            assert page.locator('.pulse-news-detail:visible .pulse-news-detail-panel').evaluate("el=>el.firstElementChild.classList.contains('pulse-detail-boards')")
+            assert page.get_by_role('link',name='Related hardware / news').count()==0
             assert actions.locator('a').filter(has=page.locator('.pulse-i-github')).get_attribute('href').endswith(event['path'])
             for width in (1440,390):
                 page.set_viewport_size({'width':width,'height':900})

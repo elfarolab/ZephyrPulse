@@ -51,3 +51,8 @@ lists, mixed categories, capability signals and grouped board timelines.
 The board-profile smoke test is available as `python tests/board_profile_browser_smoke.py`.
 It generates a synthetic board from Git and checks the recent-commit table,
 collapsed exact targets, home navigation, external-link policy and mobile layout.
+
+The table-controls browser smoke test also covers vendor-grouped Board Explorer:
+collapsed defaults, expand/collapse, exact contextual filters, vendor counts,
+child table sorting and mobile access. News detail regressions verify that
+board shortcuts precede commit titles and redundant related-search links are absent.

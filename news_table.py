@@ -71,8 +71,9 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None,
         links = [action('Commit '+sha, url, 'commit', 'View commit on GitHub')]
         if path:
             links.append(action('Source file', source, 'github', 'View source file on GitHub'))
-        links.extend(action(b['name'], profile_url(b), 'board', 'Open board profile: '+b['name']) for b in linked)
-        out.append(f'<tr class="pulse-news-detail"><td colspan="{len(columns)+1}"><article class="pulse-news-detail-panel"><strong>{escape(subject)}</strong><p>{escape(headline)}</p><p>{escape(r["detail"])}</p><p>Change type: {escape(typ)}</p><p>{escape(stamp)} UTC · {escape(CATEGORIES[kind])} · {escape(confidence)} · {escape(release)} (exact commit inclusion)</p>')
+        board_links = ' '.join(action(b['name'], profile_url(b), 'board', 'Open board profile: '+b['name']) for b in linked)
+        board_header = f'<p class="pulse-detail-boards">{board_links}</p>' if board_links else ''
+        out.append(f'<tr class="pulse-news-detail"><td colspan="{len(columns)+1}"><article class="pulse-news-detail-panel">{board_header}<strong>{escape(subject)}</strong><p>{escape(headline)}</p><p>{escape(r["detail"])}</p><p>Change type: {escape(typ)}</p><p>{escape(stamp)} UTC · {escape(CATEGORIES[kind])} · {escape(confidence)} · {escape(release)} (exact commit inclusion)</p>')
         peers = [k for k in CATEGORIES if k != kind and k in related.get(subject.casefold(), set())]
         if peers:
             out.append('<p>Same subject in other categories: '+ ' · '.join(action(CATEGORIES[k], f'{k}.html?subject={quote(subject,safe="")}', CATEGORY_ICONS[k]) for k in peers) + '</p>')
@@ -80,7 +81,6 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None,
             out.append(f'<p>{icon("filter")} Subject filter: {filter_link}</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
         if path: out.append(f'<p>Source: <code>{escape(path)}</code>{" (before removal)" if revision != sha else ""}</p>')
-        links.append(action('Related hardware / news', f'hardware-search.html?subject={quote(subject,safe="")}', 'search'))
         out.append('<p class="pulse-news-links">'+' '.join(links)+'</p></article></td></tr>')
     out.append('</tbody></table></div></div>')
     # One raw HTML block (no blank lines) for Markdown engines.
@@ -175,7 +175,9 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
             sort_value = f' data-sort-value="{file_count}"' if i==4 else f' data-sort-value="{attr(v)}"' if i==2 and category=='board_feature' else ''
             out.append(f'<td class="pulse-news-col-{i}" title="{attr(v)}"{sort_value}>{cell}</td>')
         out.append('</tr>')
-        out.append(f'<tr class="pulse-news-detail"><td colspan="{len(columns)+1}"><article class="pulse-news-detail-panel"><strong>{escape(headline)}</strong><p>{escape(stamp)} UTC · {escape(category_text)} · {escape(release)} (exact commit inclusion)</p>')
+        board_links = ' '.join(action(b['name'],profile_url(b),'board') for b in linked) if not board_context else ''
+        board_header = f'<p class="pulse-detail-boards">{board_links}</p>' if board_links else ''
+        out.append(f'<tr class="pulse-news-detail"><td colspan="{len(columns)+1}"><article class="pulse-news-detail-panel">{board_header}<strong>{escape(headline)}</strong><p>{escape(stamp)} UTC · {escape(category_text)} · {escape(release)} (exact commit inclusion)</p>')
         if rel.get('latest_release') or rel.get('lts_tags'):
             out.append(f'<p>Latest tracked containing tag: {escape(rel.get("latest_release") or "Unknown")} · LTS tags: {escape(", ".join(rel.get("lts_tags",[])) or "None")}</p>')
         if driver: out.append(f'<p>Subsystem: {escape(g["subsystem"])} · Driver: {escape(g["driver"])}</p>')
@@ -196,9 +198,6 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         for e in rows:
             if not e.get('path'): out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
         links = [action('View upstream commit',f'{UPSTREAM}/commit/{quote(sha,safe="")}','commit')]
-        if not board_context:
-            links.extend(action(b['name'],profile_url(b),'board') for b in linked)
-            links.append(action('Related hardware / news','hardware-search.html?subject='+quote(sha,safe=''),'search'))
         out.append('</ul><p class="pulse-news-links">'+' '.join(links)+'</p></article></td></tr>')
     out.append('</tbody></table></div></div>')
     return '\n'.join(out)

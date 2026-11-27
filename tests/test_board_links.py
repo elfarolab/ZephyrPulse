@@ -32,8 +32,9 @@ class BoardLinkTests(TestCase):
         self.assertIn('board_feature.html?subject=kit%2Fchip%2Fcpu0',html)
         import re
         links=re.search(r'<p class="pulse-news-links">(.*?)</p>',html).group(1)
-        for glyph in ('commit','github','board','search'):
+        for glyph in ('commit','github'):
             self.assertIn('pulse-i-'+glyph,links)
         self.assertIn('pulse-i-filter',html)
-        self.assertIn('href="boards/kit-abc.html" class="pulse-detail-link"',links)
+        self.assertIn('href="boards/kit-abc.html" class="pulse-detail-link"',html.split('<article class="pulse-news-detail-panel">')[1].split('<strong>')[0])
+        self.assertNotIn('Related hardware / news',html)
         self.assertNotIn('pulse-board-profile-link',render_news_table([dict(e,subject='boards/acme/kit')],boards=self.boards))

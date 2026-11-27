@@ -64,6 +64,10 @@ def main():
             mount('board_feature',[board_event,dict(board_event,detail='New supported metadata entry: spi')],static)
             expect(visible).to_have_count(2);expect(page.locator('.pulse-signal-preview')).to_have_count(2)
             expect(page.locator('.pulse-board-profile-link')).to_have_count(2)
+            visible.first.locator('.pulse-news-toggle').click();panel=page.locator('.pulse-news-detail:visible .pulse-news-detail-panel')
+            expect(panel.locator('.pulse-detail-boards a')).to_have_attribute('href',board['url'])
+            assert panel.evaluate("el=>el.firstElementChild.classList.contains('pulse-detail-boards')")
+            assert panel.get_by_role('link',name='Related hardware / news').count()==0
             assert not errors,errors
         a=dict(sha='a'*40,committed='2026-11-27T02:26:00Z',label='CAN',confidence='observed',path='boards/a/kit/a.dts')
         b=dict(a,label='SPI',path='boards/a/kit/b.dts')

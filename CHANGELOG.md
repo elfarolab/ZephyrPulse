@@ -1,3 +1,9 @@
+# v0.3.28 — Board shortcuts and vendor-grouped explorer
+
+- Move direct board profile links to the top of expanded commit and event details; remove redundant Related hardware / news actions throughout the shared news tables.
+- Group Board Explorer by exact vendor identity. Collapse groups by default, show matched board counts and latest retained milestones, and automatically open matches when filtering. Keep sortable vendor and board headers, contextual links, watchlist filters and a flat no-JavaScript fallback.
+- No database or classifier migration.
+
 # v0.3.27 — Persistent home branding and fifteen news categories
 
 - Keep the Zephyr Pulse home title visible even when the theme switches to its scrolled page-title state. Preserve external-link policy and internal navigation.

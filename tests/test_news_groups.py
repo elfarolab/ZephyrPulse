@@ -32,7 +32,7 @@ class GroupTests(TestCase):
         self.assertIn('Second signal',html)
         self.assertNotIn('pulse-subject-filter',html)
         self.assertIn('data-sort-value="3"',html)
-        self.assertIn('hardware-search.html?subject='+a['sha'],html)
+        self.assertNotIn('hardware-search.html?subject='+a['sha'],html)
         self.assertEqual(len(rows),4)
 
     def test_scoped_categories_and_generic_names(self):

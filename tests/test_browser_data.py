@@ -38,7 +38,7 @@ class BrowserDataTests(unittest.TestCase):
         self.assertIn('View all 200 drivers',summary)
         table=render_news_table([e]);self.assertIn('href="driver.html"',table)
         self.assertIn('driver.html?subject=ti_ads122s14%20%2F%20a%26b',table)
-        self.assertIn('hardware-search.html?subject=ti_ads122s14%20%2F%20a%26b',table)
+        self.assertNotIn('hardware-search.html?subject=ti_ads122s14%20%2F%20a%26b',table)
         grouped=render_category_summary([e,dict(e,kind='dts')],{},{},{})
         self.assertIn('dts.html?subject=ti_ads122s14%20%2F%20a%26b',grouped)
         self.assertIn('Same subject in other categories',grouped)

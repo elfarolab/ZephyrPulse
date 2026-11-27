@@ -375,7 +375,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         same=path.is_file() and path.read_bytes()==content
         if not same: path.write_bytes(content)
         if name.startswith('boards/'): page_counts['unchanged' if same else 'changed']+=1
-    catalog=['# Board explorer','',stamp,cov,'','All discovered `board.yml` definitions, not only watched boards. The browser filter changes only this list. [Compare hardware targets](compare.md).' ,'', '<div id="pulse-board-filter"></div>','', '| Board | Vendor | SoCs | Last detected milestone |','|---|---|---|---|']
+    catalog=['# Board explorer','',stamp,cov,'','All discovered `board.yml` definitions, not only watched boards. Grouped by vendor in the browser. Expand a vendor to inspect its boards; filters search across all groups. [Compare hardware targets](compare.md).' ,'', '<div id="pulse-board-filter"></div>','', '| Board | Vendor | SoCs | Last detected milestone |','|---|---|---|---|']
     board_data=[]
     progress=Progress('Board pages',len(boards))
     for i,(key,b) in enumerate(sorted(boards.items(),key=lambda x:x[1]['name'].casefold()),1):
