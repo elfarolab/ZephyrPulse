@@ -357,6 +357,10 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
             r['board_profile_url']=profile_url(boards[key])
             if key not in r['boards']: r['boards']=[*r['boards'],key]
         r['watched']=watch_match(r,boards,watch)
+    from news_groups import board_recent_activity
+    from news_table import render_grouped_news
+    recent_commits = {r['sha']:dict(r) for r in db.execute('SELECT * FROM commits')}
+    board_activity = board_recent_activity(rows, recent_commits, commit_files, boards)
     history=defaultdict(list)
     for r in db.execute('SELECT m.*,h.committed FROM milestones m JOIN history_seen h USING(sha) ORDER BY h.committed DESC,sha,kind,label,path'):
         history[r['board']].append(dict(r))
@@ -385,12 +389,22 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         board_data.append(item)
         revision=b.get('evidence_revision',head)
         board_stamp=f'Hardware evidence snapshot: [`{revision[:12]}`]({UPSTREAM}/commit/{revision}). See [Board explorer](../boards.md) for latest collection time.'
-        lines=[f"# {md(b['full_name'])}",'',board_stamp,'',overview(b,image,revision,UPSTREAM),'',f'[Compare hardware](../compare.md) · [Related hardware / news](../hardware-search.html?subject={quote(b["name"],safe="")}) · <a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','', '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
+        activity = board_activity.get(key, [])
+        lines=[f"# {md(b['full_name'])}",'',board_stamp,'',overview(b,image,revision,UPSTREAM),'',
+               '## Recent board commits','',
+               f'Rolling {hours} hours · direct board-folder changes and classified board associations. File lists cover the complete commit when available, including changes outside this board. Shared source files may affect multiple boards; no indirect driver/SoC impact is inferred.','',
+               render_grouped_news(activity,'all',statuses,boards,idx,commit_files,board_context=True) if activity else '_No associated commits in this window. See the retained support timeline below for older evidence._','',
+               f'<a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','',
+               '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
+        def html_source(path):
+            return f'<a href="{UPSTREAM}/blob/{revision}/{quote(path,safe="/")}">source</a>'
         for target in sorted(set(b['targets'])|set(b['metadata'])):
-            meta=b['metadata'].get(target); lines += [f'### {md(target)}','']
-            if not meta: lines += ['_No exact target YAML metadata found._','']; continue
+            meta=b['metadata'].get(target)
+            lines += [f'<details class="pulse-board-target"><summary><span>{escape(target)}</span></summary>', '<div class="pulse-board-target-body">']
+            if not meta:
+                lines += ['<p>No exact target YAML metadata found.</p>','</div></details>','']; continue
             features={canonical(f) for f in meta['features']}
-            lines += [f"Architecture: {md(meta['arch'] or 'not declared')} · RAM: {md(meta['ram'] if meta['ram'] is not None else 'not declared')} · Flash: {md(meta['flash'] if meta['flash'] is not None else 'not declared')} (upstream metadata, normally KiB). {source_link(revision,meta['path'])}",'','| Peripheral / feature | Evidence | Compatible / source |','|---|---|---|']
+            lines += [f"<p>Architecture: {escape(str(meta['arch'] or 'not declared'))} · RAM: {escape(str(meta['ram'] if meta['ram'] is not None else 'not declared'))} · Flash: {escape(str(meta['flash'] if meta['flash'] is not None else 'not declared'))} (upstream metadata, normally KiB). {html_source(meta['path'])}</p>",'<div class="pulse-matrix"><table><thead><tr><th>Peripheral / feature</th><th>Evidence</th><th>Compatible / source</th></tr></thead><tbody>']
             ev=meta.get('dts_evidence',{}); hints=set(ev.get('features',[])); present=set(ev.get('present_features',[]))
             for f in sorted(features|hints|present):
                 evidence=('Declared (YAML)' if f in features else 'DTS source hint' if f in hints else 'Present in DTS; no okay hint')
@@ -398,18 +412,18 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
                 by_compat={}
                 for n in matches:
                     by_compat.setdefault(n['compatible'],n['binding_paths'][0] if n['binding_paths'] else n['compatible_paths'][0])
-                refs=' · '.join(f'[{md(c)}]({UPSTREAM}/blob/{revision}/{quote(p,safe="/")})' for c,p in sorted(by_compat.items()))
-                lines.append(f"| {md(f)} | {evidence} | {refs or '—'} |")
-            if not features and not hints and not present: lines.append('| — | No evidence | — |')
-            lines += ['', 'A missing row means no evidence was collected, not that the hardware is unsupported. Inspect source details for instance status and matching driver references.', '']
+                refs=' · '.join(f'<a href="{UPSTREAM}/blob/{revision}/{quote(p,safe="/")}">{escape(c)}</a>' for c,p in sorted(by_compat.items()))
+                lines.append(f'<tr><td>{escape(f)}</td><td>{evidence}</td><td>{refs or "—"}</td></tr>')
+            if not features and not hints and not present: lines.append('<tr><td>—</td><td>No evidence</td><td>—</td></tr>')
+            lines += ['</tbody></table></div>', '<p>A missing row means no evidence was collected, not that the hardware is unsupported. Inspect source details for instance status and matching driver references.</p>']
             if ev.get('entry'):
-                lines += [f"Exact-target DTS: {source_link(revision,ev['entry'])}", '', '<details class="pulse-evidence"><summary>Inspect compatible strings, instances, bindings and source history</summary>', '<div class="pulse-matrix"><table><thead><tr><th>Peripheral</th><th>Compatible / node</th><th>Source status hint</th><th>Evidence</th></tr></thead><tbody>']
+                lines += [f"<p>Exact-target DTS: {html_source(ev['entry'])}</p>", '<details class="pulse-evidence"><summary>Inspect compatible strings, instances, bindings and source history</summary>', '<div class="pulse-matrix"><table><thead><tr><th>Peripheral</th><th>Compatible / node</th><th>Source status hint</th><th>Evidence</th></tr></thead><tbody>']
                 for node in ev['nodes']:
                     paths=sorted(set(node['compatible_paths']+node['status_paths']+node['binding_paths']+node.get('driver_paths',[])))
                     refs='<br>'.join(f'<a href="{UPSTREAM}/blob/{revision}/{quote(p,safe="/")}">{escape(PurePosixPath(p).name)}</a> · <a href="{UPSTREAM}/commits/{revision}/{quote(p,safe="/")}">history</a>' for p in paths)
                     lines.append(f'<tr><td>{escape(", ".join(node["features"]))}</td><td><code>{escape(node["compatible"])}</code><br>{escape(node["node"])}</td><td>{escape(node["status"])} ({escape(", ".join(node["status_values"]) or "none")})</td><td>{refs}</td></tr>')
-                lines += ['</tbody></table></div></details>','']
-            lines += ['']
+                lines += ['</tbody></table></div></details>']
+            lines += ['</div></details>','']
         if not b['targets'] and not b['metadata']: lines += ['_No target metadata found._','']
         from news_table import render_board_timeline
         lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). [Global history coverage](../boards.md). One row per commit; expand evidence for individual signals. These are retained milestones, not complete commit file lists.",'',render_board_timeline(timeline,statuses,release_text)]

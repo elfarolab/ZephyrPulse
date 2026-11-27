@@ -18,7 +18,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII='
 BROWSER_TESTS = ('news_browser_smoke.py', 'table_browser_smoke.py', 'browser_smoke.py',
-                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'rendered_smoke.py')
+                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'board_profile_browser_smoke.py', 'rendered_smoke.py')
 REQUIRED = ('index.html', 'boards.html', 'watchlist.xml', 'intelligence.json',
             'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html')
 
@@ -98,6 +98,9 @@ def exercise(work, extended):
         if not (site / name).is_file():
             raise RuntimeError(f'Missing fixture output: {name}')
     baseline = board_hashes(site)
+    board_page = next((site/'boards').glob('*.html')).read_text()
+    if 'pulse-board-target' not in board_page or 'Recent board commits' not in board_page or 'Affected files (3)' not in board_page:
+        raise RuntimeError('Missing board profile activity or target disclosure markup')
     news = json.loads((site / 'data/news-view.json').read_text())
     if set(news['commit_files']) != {e['sha'] for e in news['events']}:
         raise RuntimeError('Expected complete manifest coverage for synthetic commits')

@@ -51,7 +51,7 @@ class BoardImageTests(TestCase):
         boards,images=build(sha);key=next(k for k in boards if boards[k]['name']=='kit');vkey=next(k for k in boards if boards[k]['name']=='virtual')
         self.assertNotIn(vkey,images); image=images[key];file=docs/image['url'];self.assertEqual(file.read_bytes(),PNG)
         page=docs/'boards'/f"{boards[key]['slug']}.md";original=page.read_bytes();mtime=file.stat().st_mtime_ns
-        self.assertIn(b'loading="lazy"',original);self.assertIn(b'Image source',original);self.assertIn(sha.encode(),original);self.assertIn(image['url'].encode(),original)
+        self.assertIn(b'loading="lazy"',original);self.assertNotIn(b'Image source',original);self.assertIn(b'data-upstream-source',original);self.assertIn(sha.encode(),original);self.assertIn(image['url'].encode(),original)
         self.assertIn('No upstream board image available',(docs/'boards'/f"{boards[vkey]['slug']}.md").read_text())
         from generators import build_site
         from test_generators import Fake

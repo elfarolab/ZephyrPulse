@@ -78,3 +78,33 @@
   global.PulseLinkIcons={kind,decorate,scan};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })(window);
+
+/* Home navigation and external-link policy, independent of semantic icons.
+ * Handle the repository header, footer, and newly rendered application links. */
+(()=>{
+  const script=document.currentScript;
+  const home=script?.src?new URL('../index.html',script.src).href:null;
+  const managed=new WeakMap();
+  function link(a){
+    const raw=a.getAttribute('href');let external=false;
+    if(raw){try{const u=new URL(raw,document.baseURI);external=['http:','https:'].includes(u.protocol)&&u.origin!==new URL(document.baseURI).origin;}catch(_){}}
+    if(external){
+      if(!managed.has(a))managed.set(a,{target:a.getAttribute('target'),rel:a.getAttribute('rel')});
+      a.target='_blank';a.relList.add('noopener','noreferrer');
+    }else if(managed.has(a)){
+      const prior=managed.get(a);for(const key of ['target','rel']){if(prior[key]===null)a.removeAttribute(key);else a.setAttribute(key,prior[key]);}managed.delete(a);
+    }
+  }
+  function scan(root){if(root.nodeType!==1&&root.nodeType!==9)return;if(root.matches?.('a[href]'))link(root);root.querySelectorAll('a[href]').forEach(link);}
+  function title(){
+    const topic=document.querySelector('.md-header__title .md-header__topic');
+    const text=topic?.querySelector('.md-ellipsis')||topic;
+    if(!text||text.querySelector('a')||text.matches('a'))return;
+    const logo=document.querySelector('a.md-header__button.md-logo[href]');
+    const href=home||logo?.href;if(!href)return;
+    const a=document.createElement('a');a.className='pulse-home-title';a.href=href;a.setAttribute('aria-label','Zephyr Pulse home');a.title='Zephyr Pulse home';
+    while(text.firstChild)a.append(text.firstChild);text.append(a);
+  }
+  function start(){title();scan(document);new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'&&r.target.matches('a'))link(r.target);else for(const el of r.addedNodes)scan(el);}}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();

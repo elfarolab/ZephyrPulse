@@ -113,7 +113,7 @@ def render_category_summary(items, statuses, boards, idx, preview=3):
     return '\n'.join(out)
 
 
-def render_grouped_news(items, category, statuses=None, boards=None, idx=None, commit_files=None):
+def render_grouped_news(items, category, statuses=None, boards=None, idx=None, commit_files=None, board_context=False):
     import json
     from news_groups import group_events, manifest_files, DRIVERS, SCOPED, group_unit
     from pulse import UPSTREAM, CATEGORIES, CATEGORY_ICONS, icon
@@ -134,9 +134,10 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
     columns = news_columns(category, True)
     mixed = category in {'all','release_news'}
     unit = group_unit(category)
+    evidence_label = 'board evidence records' if board_context else 'classified events'
     fixed = '' if mixed else category
-    out = [f'<div class="pulse-news-table pulse-grouped-news pulse-compact-news" data-pulse-news="100" data-group-unit="{unit}" data-group-category="{category}" data-fixed-category="{fixed}">',
-           f'<p class="pulse-group-summary">{len(groups)} {unit} · {len(items)} classified events. File counts are for the complete commit when available; + means partial evidence.</p><div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
+    out = [f'<div class="pulse-news-table pulse-grouped-news pulse-compact-news" data-pulse-news="100" data-group-unit="{unit}" data-group-category="{category}" data-fixed-category="{fixed}" data-evidence-label="{evidence_label}">',
+           f'<p class="pulse-group-summary">{len(groups)} {unit} · {len(items)} {evidence_label}. File counts are for the complete commit when available; + means partial evidence.</p><div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
            '<th scope="col" class="pulse-news-expand"><span class="pulse-sr-only">Details</span></th>']
     out.extend(f'<th scope="col" data-news-column="{i}">{escape(h)}</th>' for i,h in columns)
     out.append('</tr></thead><tbody>')
@@ -156,6 +157,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)
         kinds = list(dict.fromkeys(e['kind'] for e in rows))
         category_text = ', '.join(CATEGORIES[k] for k in kinds) if mixed else CATEGORIES[category]
+        if board_context and all(e.get('manifest_only') for e in rows): category_text = 'Board maintenance · Direct board-folder change'
         data = {'kind':r['kind'] if mixed else category,'kinds':json.dumps(kinds),'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(list(dict.fromkeys([*g['subjects'],g['subject']]))),'scope':g['subject'] if category in SCOPED else '','subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows)}
         attrs = ' '.join(f'data-{k}="{attr(v)}"' for k,v in data.items())
         out.append(f'<tr class="pulse-news-row pulse-cat-{r["kind"] if mixed else category}" {attrs}>')
@@ -164,7 +166,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         for i,_ in columns:
             v=vals[i]
             cell = expand_button(v) if i in (3,6) else escape('Not in tags' if i==5 and v=='Not in tracked releases' else v)
-            if i==1 and mixed: cell = ' · '.join(icon(CATEGORY_ICONS[k])+' '+escape(CATEGORIES[k]) for k in kinds)
+            if i==1 and mixed: cell = escape(category_text) if board_context and all(e.get('manifest_only') for e in rows) else ' · '.join(icon(CATEGORY_ICONS[k])+' '+escape(CATEGORIES[k]) for k in kinds)
             if i==2 and category in {'board','board_candidate','board_change','board_feature'} and g['subjects']==[v]:
                 key=resolver.resolve(r, ids)
                 if key is not None: cell=f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}">{escape(v)}</a>'
@@ -180,7 +182,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         if not driver and category in SCOPED: out.append(f'<p>Hardware scope: {escape(g["subject"])}</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
         heading = f'Affected files ({file_count}) — complete commit' if manifest is not None else f'Known evidence files ({file_count}) — complete diff unavailable'
-        out.append(f'<p><strong>{heading}</strong> · {len(rows)} classified events in this category/group</p><ul class="pulse-affected-files">')
+        out.append(f'<p><strong>{heading}</strong> · {len(rows)} {evidence_label} in this group</p><ul class="pulse-affected-files">')
         for path,revision,status,old_path,evidence in files+extra:
             url = f'{UPSTREAM}/blob/{quote(revision,safe="")}/{quote(path,safe="/")}'
             note = {'A':'Added','M':'Modified','D':'Deleted','R':'Renamed','C':'Copied','T':'Type changed'}.get(status,'Additional evidence' if manifest is not None else '')
@@ -193,7 +195,11 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
             out.append('</li>')
         for e in rows:
             if not e.get('path'): out.append(f'<li>{escape(CATEGORIES[e["kind"]])+" · " if mixed else ""}{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
-        out.append('</ul><p class="pulse-news-links">'+action('View upstream commit',f'{UPSTREAM}/commit/{quote(sha,safe="")}','commit')+' '+ ' '.join(action(b['name'],profile_url(b),'board') for b in linked)+' '+action('Related hardware / news','hardware-search.html?subject='+quote(sha,safe=''),'search')+'</p></article></td></tr>')
+        links = [action('View upstream commit',f'{UPSTREAM}/commit/{quote(sha,safe="")}','commit')]
+        if not board_context:
+            links.extend(action(b['name'],profile_url(b),'board') for b in linked)
+            links.append(action('Related hardware / news','hardware-search.html?subject='+quote(sha,safe=''),'search'))
+        out.append('</ul><p class="pulse-news-links">'+' '.join(links)+'</p></article></td></tr>')
     out.append('</tbody></table></div></div>')
     return '\n'.join(out)
 

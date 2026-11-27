@@ -1,3 +1,10 @@
+# v0.3.26 — Activity-first board profiles and external navigation
+
+- Make the text-only header brand a home link, including nested board pages. Open external HTTP(S) links in a new tab with noopener/noreferrer; preserve internal navigation and handle dynamically inserted links.
+- Move recent board-associated commits directly below the overview. Reuse sortable expandable commit rows and complete cached Git manifests; include direct board-folder diffs even without classified events. Shared folders are explicitly folder-level evidence, not inferred driver/SoC impact. Retain the historical support timeline separately.
+- Remove the visible photo attribution caption (preserve upstream image provenance in a data attribute) and misleading related-search link. Collapse each exact target capability section by default with a native accessible disclosure, keeping source evidence and table sorting.
+- No database or classifier migration. Existing source-based disposable cache fingerprints and browser assets change, so expect a one-time cache refresh and larger upload.
+
 # v0.3.25 — Category-aware tables and consistent commit navigation
 
 - Use category-specific sortable columns across all ten news pages. Remove constant category columns and filters, retain meaningful hardware identifiers, and give the complete upstream commit title more space. Sensors omit the redundant subsystem column; SoCs show a genuine SoC/family scope; documentation, Devicetree and other news omit generic filenames from the collapsed row.

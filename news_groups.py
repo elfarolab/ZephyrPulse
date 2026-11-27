@@ -130,3 +130,44 @@ def manifest_files(group, manifest):
     keys = {(p,rev) for p,rev,*_ in files}
     extra = [(p,rev,'',None,rows) for (p,rev),rows in evidence.items() if (p,rev) not in keys]
     return files, extra
+
+
+def board_recent_activity(rows, commits, manifests, boards):
+    """Index recent commits by classified association or an exact board-folder diff.
+
+    Shared folders are folder-level evidence, not proof of a specific variant.
+    Manifest-only records are presentation evidence, never persisted as events.
+    """
+    from pathlib import PurePosixPath
+    by_folder = defaultdict(list)
+    for key, board in boards.items():
+        by_folder[board['folder']].append(key)
+    activity = defaultdict(lambda: defaultdict(list))
+    for row in rows:
+        for key in row.get('boards', []):
+            if key in boards:
+                activity[key][row['sha']].append(row)
+    for sha, files in (manifests or {}).items():
+        if sha not in commits:
+            continue
+        matched = defaultdict(list)
+        for f in files:
+            keys = set()
+            for path in (f.get('path'), f.get('old_path')):
+                if path and path.startswith('boards/'):
+                    for parent in PurePosixPath(path).parents:
+                        keys.update(by_folder.get(str(parent), []))
+            for key in keys:
+                matched[key].append(f)
+        for key, fs in matched.items():
+            if activity[key].get(sha):
+                continue
+            for f in fs:
+                activity[key][sha].append(dict(sha=sha, committed=commits[sha]['committed'],
+                    commit_subject=commits[sha]['subject'], kind='board_change', subject=boards[key]['name'],
+                    detail='Direct board-folder diff; not a classified capability signal.', confidence='observed',
+                    path=f['path'], source_revision=f['revision'], change_type='Direct folder change',
+                    boards=[key], manifest_only=True))
+    return {key: sorted((row for group in groups.values() for row in group),
+                        key=lambda r: (r['committed'], r['sha']), reverse=True)
+            for key, groups in activity.items()}

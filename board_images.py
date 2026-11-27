@@ -178,13 +178,11 @@ def overview(b, image, revision, upstream):
     """Compact static card; image is independent of evidence tables and JS."""
     def url(path): return f'{upstream}/blob/{revision}/{quote(path,safe="/")}'
     def a(href, text): return f'<a href="{escape(href, quote=True)}">{escape(text)}</a>'
-    name = escape(b['full_name'])
     lines = ['<section class="pulse-board-overview" aria-label="Board overview">',
              '<div class="pulse-board-photo">']
     if image:
         local = '../'+image['url']
-        lines += [f'<a href="{local}"><img src="{local}" alt="{name}" loading="lazy" decoding="async"></a>',
-                  '<small>Upstream Zephyr documentation · '+a(url(image['path']), 'Image source')+'</small>']
+        lines += [f'<a href="{local}" data-upstream-source="{escape(url(image["path"]),quote=True)}"><img src="{local}" alt="{escape(b["full_name"],quote=True)}" loading="lazy" decoding="async"></a>']
     else:
         lines += ['<div class="pulse-board-no-photo"><span class="pulse-icon pulse-i-board" aria-hidden="true"></span><span>No upstream board image available</span></div>']
     lines += ['</div>', '<div class="pulse-board-overview-meta">', '<strong>Board overview</strong>', '<dl>',

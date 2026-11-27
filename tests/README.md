@@ -7,7 +7,7 @@ Zensical build. It does not install or launch Chromium.
 The `Extended browser and renderer tests` workflow is manual: Actions →
 Extended browser and renderer tests → Run workflow. It builds the same
 fixture, checks byte stability after an unrelated commit and two cached
-renderer builds, and runs all seven Chromium smoke tests. Failures remain
+renderer builds, and runs all eight Chromium smoke tests. Failures remain
 failures; the manual workflow is not part of automatic CI.
 
 ## Local testing
@@ -47,3 +47,7 @@ expansion, and responsive layout without accessing the production site.
 The category-layout smoke test is available as `python tests/category_layout_browser_smoke.py`.
 It covers category-specific columns, header sorting, scope filters, lazy file
 lists, mixed categories, capability signals and grouped board timelines.
+
+The board-profile smoke test is available as `python tests/board_profile_browser_smoke.py`.
+It generates a synthetic board from Git and checks the recent-commit table,
+collapsed exact targets, home navigation, external-link policy and mobile layout.

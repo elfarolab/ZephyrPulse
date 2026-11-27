@@ -38,9 +38,20 @@ def main():
             expect(cards).to_have_count(1);expect(target_link).to_be_visible()
             expect(targets.locator('.pulse-search-board-photo')).to_be_visible();target_link.click();page.get_by_role('heading',name='Target capability matrix',exact=True,level=2).wait_for();photo=page.locator('.pulse-board-photo img');photo.wait_for();photo.scroll_into_view_if_needed();page.wait_for_function("document.querySelector('.pulse-board-photo img').naturalWidth > 0");assert not errors,errors
             page.locator('.pulse-board-overview-links a .pulse-i-github').first.wait_for()
+            expect(page.locator('.pulse-board-overview-links a').first).to_have_attribute('target','_blank')
+            home=page.get_by_role('link',name='Zephyr Pulse home');expect(home).to_have_attribute('href',base+'index.html')
+            expect(page.get_by_role('heading',name='Recent board commits',exact=True,level=2)).to_be_visible()
+            expect(page.locator('.pulse-board-target')).to_have_count(1)
+            target=page.locator('.pulse-board-target');assert target.get_attribute('open') is None
+            target.locator(':scope > summary').click();expect(target.locator('table').first).to_be_visible()
+            target.locator(':scope > summary').click();assert target.get_attribute('open') is None
+            activity=page.locator('.pulse-grouped-news');expect(activity.locator('.pulse-news-row')).to_have_count(1)
+            activity.locator('.pulse-news-col-6 button').click();expect(activity.locator('.pulse-news-detail:visible .pulse-affected-files > li')).to_have_count(3)
+            expect(activity.get_by_role('link',name='View upstream commit')).to_have_attribute('target','_blank')
+            assert page.get_by_role('link',name='Related hardware / news',exact=True).count()==0
             assert page.locator('script[src*="assets/theme-zensical.js?pulse_v="]').count()==1
             assert page.locator('link[href*="assets/pulse.css?pulse_v="]').count()==1
-            page.goto(base+'index.html');page.set_viewport_size({'width':1440,'height':900});page.locator('.md-tabs').wait_for(state='visible');page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();page.evaluate('window.scrollTo(0,0)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();assert not page.locator('.md-sidebar--secondary').count() or not page.locator('.md-sidebar--secondary').is_visible();page.locator('#pulse-home-watch').get_by_text('Your browser watchlist').wait_for();assert page.get_by_role('link',name='Hardware search',exact=True).count()>0
+            page.evaluate('window.scrollTo(0,0)');home.click();page.wait_for_url(base+'index.html');page.set_viewport_size({'width':1440,'height':900});page.locator('.md-tabs').wait_for(state='visible');page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();page.evaluate('window.scrollTo(0,0)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();assert not page.locator('.md-sidebar--secondary').count() or not page.locator('.md-sidebar--secondary').is_visible();page.locator('#pulse-home-watch').get_by_text('Your browser watchlist').wait_for();assert page.get_by_role('link',name='Hardware search',exact=True).count()>0
             assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==10
             assert page.locator('.pulse-tools a .pulse-icon').count()==4
             assert page.locator('.md-tabs__link .pulse-icon').count()==6
