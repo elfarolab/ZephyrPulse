@@ -454,8 +454,11 @@ def main():
                 remove_legacy_logo(ROOT/'docs')
             with stage('Generate recent news Markdown and feeds'):
                 render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False))
+            from board_images import publish as publish_board_images
+            with stage('Discover and publish board images'):
+                board_images=publish_board_images(repo,head,boards,ROOT/'docs',cfg.get('board_images',True))
             with stage('Generate board pages, JSON and intelligence feeds'):
-                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),policy,cfg.get('preferences',{}),snapshots)
+                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),policy,cfg.get('preferences',{}),snapshots,board_images=board_images)
         finally:
             db.close()
         if not args.no_build:

@@ -35,6 +35,17 @@ def validate_site(docs: Path, output: Path):
             for view in ('data/preferences.json','data/news-view.json') + (('data/activity.json',) if data.get('schema_version') == 3 else ()):
                 with (output/view).open(encoding='utf-8') as f: json.load(f)
             import re
+            from board_images import GENERATED, git_digest, valid_raster
+            for ref in {b['image_url'] for b in data.get('boards', []) if b.get('image_url')}:
+                prefix = 'data/board-images/'
+                if not ref.startswith(prefix) or not GENERATED.fullmatch(ref[len(prefix):]):
+                    raise RuntimeError(f'Invalid board image reference: {ref}')
+                image = output/ref
+                if not image.is_file():
+                    raise RuntimeError(f'Missing board image: {ref}')
+                raw = image.read_bytes()
+                if git_digest(raw, image.stem) != image.stem or not valid_raster(raw, image.suffix[1:]):
+                    raise RuntimeError(f'Invalid board image: {ref}')
             refs = {t['evidence_url'] for t in data['comparison']['targets']}
             for ref in refs:
                 if not re.fullmatch(r'data/board-evidence/[a-f0-9]{64}\.json', ref):

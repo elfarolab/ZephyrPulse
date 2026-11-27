@@ -329,11 +329,13 @@ def get_prs(db,cfg,now):
         result=json.loads(old[0]) if old else {'items':[],'scanned':0}; return {**result,'status':'stale' if old else 'unavailable'}
 
 
-def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None):
+def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None,board_images=None):
     policy=policy or {}
     from comparison import comparison_data, canonical, FEATURES
     preferences=preferences or {}
     snapshots=snapshots or []
+    board_images=board_images or {}
+    from board_images import overview
     from pulse import md, UPSTREAM, CATEGORIES, write_rss
     from html import escape
     docs.mkdir(parents=True,exist_ok=True); directory=docs/'boards'; directory.mkdir(exist_ok=True)
@@ -371,12 +373,13 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         timeline=history[key]; last=timeline[0]['committed'][:10] if timeline else '—'
         soc_links = ', '.join('[{}](boards.html?subject={})'.format(md(soc),quote(soc,safe='')) for soc in b['socs'])
         catalog.append(f"| [{md(b['name'])}](boards/{b['slug']}.md) | [{md(b['vendor_name'])}](vendors.html?vendor={quote(b['vendor'],safe='')}) | {soc_links} | {last} |")
-        item={k:v for k,v in b.items() if k not in ('raw','metadata')}; item.update(last_activity=last,url='boards/'+b['slug']+'.html'); board_data.append(item)
+        item={k:v for k,v in b.items() if k not in ('raw','metadata')}; item.update(last_activity=last,url='boards/'+b['slug']+'.html');
+        image=board_images.get(key)
+        if image: item['image_url']=image['url']
+        board_data.append(item)
         revision=b.get('evidence_revision',head)
         board_stamp=f'Hardware evidence snapshot: [`{revision[:12]}`]({UPSTREAM}/commit/{revision}). See [Board explorer](../boards.md) for latest collection time.'
-        lines=[f"# {md(b['full_name'])}",'',board_stamp,f"**Board:** `{md(b['name'])}` · **Vendor:** {md(b['vendor_name'])} · **SoCs:** {md(', '.join(b['socs']) or 'Not declared')}",'',f"[Board source]({UPSTREAM}/tree/{revision}/{quote(b['folder'],safe='/')}) · {source_link(revision,b['source'])}",'',f'[Compare hardware](../compare.md) · [Related hardware / news](../hardware-search.html?subject={quote(b["name"],safe="")}) · <a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','', '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
-        if b.get('doc_source'):
-            doc=b['doc_source']; lines[lines.index('## Target capability matrix'):lines.index('## Target capability matrix')]=[f'[Official board documentation (latest; may differ from this snapshot)](https://docs.zephyrproject.org/latest/{quote(doc[:-4],safe="/")}.html) · {source_link(revision,doc)}','']
+        lines=[f"# {md(b['full_name'])}",'',board_stamp,'',overview(b,image,revision,UPSTREAM),'',f'[Compare hardware](../compare.md) · [Related hardware / news](../hardware-search.html?subject={quote(b["name"],safe="")}) · <a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','', '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
         for target in sorted(set(b['targets'])|set(b['metadata'])):
             meta=b['metadata'].get(target); lines += [f'### {md(target)}','']
             if not meta: lines += ['_No exact target YAML metadata found._','']; continue

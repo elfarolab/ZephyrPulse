@@ -266,3 +266,18 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 /* Routine board changes are distinct from new support. */
 .pulse-cat-board_change {--pulse-category:#476a8d;}
 [data-md-color-scheme="slate"] .pulse-cat-board_change {--pulse-category:#91b8e3;}
+
+/* Upstream board imagery: compact overview with independent evidence tables. */
+.pulse-board-overview {display:grid;grid-template-columns:minmax(0,12rem) minmax(0,1fr);gap:1rem;align-items:center;max-width:38rem;padding:.75rem;margin:.75rem 0 1rem;border:1px solid var(--md-default-fg-color--lightest,#cbd5e1);border-radius:.5rem;font-size:.75rem;overflow-wrap:anywhere}
+.pulse-board-photo {min-width:0;text-align:center}
+.pulse-board-photo img {display:block;width:100%;height:9rem;max-height:10rem;object-fit:contain;margin:0 auto .25rem}
+.pulse-board-photo small {display:block;font-size:.65rem;line-height:1.35;color:var(--md-default-fg-color--light,#64748b)}
+.pulse-board-no-photo {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.45rem;min-height:5rem;color:var(--md-default-fg-color--light,#64748b);font-size:.68rem}
+.pulse-board-overview-meta {min-width:0}
+.pulse-board-overview-meta dl {display:grid;grid-template-columns:auto minmax(0,1fr);gap:.2rem .65rem;margin:.45rem 0}
+.pulse-board-overview-meta dt {font-weight:600;margin:0}
+.pulse-board-overview-meta dd {margin:0;padding:0;min-width:0}
+.pulse-board-overview-links {font-size:.68rem;margin:.2rem 0}
+.pulse-search-result {display:flow-root}
+.pulse-search-board-photo {float:right;width:5rem;height:3.75rem;object-fit:contain;margin:0 0 .4rem .6rem}
+@media (max-width:600px) {.pulse-board-overview {grid-template-columns:minmax(0,1fr);gap:.5rem}.pulse-board-photo img {width:100%;max-width:100%;height:8rem;max-height:8rem}.pulse-board-overview-meta dl {grid-template-columns:auto minmax(0,1fr)}}

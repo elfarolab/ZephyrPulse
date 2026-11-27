@@ -1,3 +1,8 @@
+# v0.3.17 — Board overview images
+
+- Add compact, responsive board overview cards and lazy image thumbnails in exact-target hardware search. Read matching raster documentation assets from local Git, reuse immutable blob filenames and retain source attribution. No new dependencies or remote requests. Missing or ambiguous photos use a placeholder. Set `board_images: false` to disable publication.
+- Retain the version-gated SQLite/classifier migration so direct upgrades remain safe; do not change classifier version.
+
 # v0.3.16 — Source-aware news classification
 
 - Preserve semantic hardware-support detection, then classify remaining changed files by subsystem path. Recognized commit prefixes are a candidate-only fallback; unmatched commits stay in Other changes with a representative source link when available.

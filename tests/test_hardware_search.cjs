@@ -10,3 +10,5 @@ test('source evidence participates in search, disabled-only features do not',()=
  const r=S.records({comparison:{targets:[t]},boards:[],events:[],pull_requests:{items:[]}});
  assert.equal(S.filter(r,{...P.defaults,hardware_capability:'can-fd'}).length,1);assert.equal(S.filter(r,{...P.defaults,hardware_capability:'usb-host'}).length,0);
 });
+
+test('board images stay associated with exact board targets',()=>{const image='data/board-images/'+ 'a'.repeat(40)+'.webp';const result=S.records({boards:[{id:'a',image_url:image}],comparison:{targets:[{board_id:'a',target:'a/cpu'},{board_id:'b',target:'b/cpu'}]}});assert.equal(result[0].image,image);assert.equal(result[1].image,undefined);});

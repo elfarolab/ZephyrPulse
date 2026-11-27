@@ -22,6 +22,8 @@ jobs:
           mkdir -p /tmp/pulse-fixture/boards/test/kit
           printf 'board:\n  name: kit\n  socs:\n    - name: chip\n' > /tmp/pulse-fixture/boards/test/kit/board.yml
           printf 'identifier: kit/chip\nsupported: [gpio, can]\n' > /tmp/pulse-fixture/boards/test/kit/kit.yaml
+          mkdir -p /tmp/pulse-fixture/boards/test/kit/doc
+          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII=' | base64 -d > /tmp/pulse-fixture/boards/test/kit/doc/kit.png
           git -C /tmp/pulse-fixture add .
           git -C /tmp/pulse-fixture commit -m 'new board'
           git -C /tmp/pulse-fixture tag v4.0.0
