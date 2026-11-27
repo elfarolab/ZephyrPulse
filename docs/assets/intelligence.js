@@ -31,7 +31,7 @@
   const commit=e=>'https://github.com/zephyrproject-rtos/zephyr/commit/'+e.sha;
   function eventList(target,events,limit=100) {
     target.replaceChildren(node('p',`${events.length} matching events${events.length>limit?` (showing ${limit})`:''}.`));
-    const list=node('ul'); for(const e of events.slice(0,limit)) {const li=node('li',`${e.committed.slice(0,10)} · `); li.append(link(e.subject,/^boards\/[\w.-]+\.html$/.test(e.board_profile_url||'')?e.board_profile_url:commit(e)),node('span',` — ${e.kind.replaceAll('_',' ')} · ${e.confidence}`)); list.append(li);} target.append(list);
+    const list=node('ul'); for(const e of events.slice(0,limit)) {const li=node('li',`${e.committed.slice(0,10)} · `);li.dataset.commitTime=e.committed; li.append(link(e.subject,/^boards\/[\w.-]+\.html$/.test(e.board_profile_url||'')?e.board_profile_url:commit(e)),node('span',` — ${e.kind.replaceAll('_',' ')} · ${e.confidence}`)); list.append(li);} target.append(list);
   }
   async function main(){
     const targets=['pulse-watchlist','pulse-home-watch','pulse-board-filter','pulse-vendor-trends']; if(!targets.some($))return;

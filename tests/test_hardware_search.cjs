@@ -22,3 +22,10 @@ test('board targets and same-title news remain distinct; exact-target filter sel
  assert(all.every(r=>r.title==='kit/chip'&&r.url===url));
  assert.deepEqual(S.filter(rows,{...P.defaults,hardware_query:'*kit*',hardware_kind:'target'}).map(r=>r.kind),['target']);
 });
+
+test('only commit results retain precise commit times for freshness',()=>{
+ assert.equal(rows.find(r=>r.kind==='board_feature').committed,'2026-11-25T01:00:00Z');
+ assert.equal(rows.find(r=>r.kind==='sensor').committed,'2026-11-26T01:00:00Z');
+ assert.equal(rows.find(r=>r.kind==='pr').committed,undefined);
+ assert.equal(rows.find(r=>r.kind==='target').committed,undefined);
+});

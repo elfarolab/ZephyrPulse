@@ -1,3 +1,9 @@
+# v0.3.29 — Rolling commit freshness
+
+- Mark commits from the last four hours with a small yellow `last` sticker in the left expansion column. Apply progressively subtler row tints for ages 0–4, 4–12 and 12–24 hours in both themes.
+- Share freshness handling across static and dynamic news, watchlists, board recent activity, release inclusion and historical timelines, plus commit-based hardware and universal search results. Use exact commit timestamps, not publication time or PR update time. Recalculate in the browser every 30 seconds and on tab visibility changes; no timestamp-driven HTML churn.
+- Preserve header sorting, pagination, row expansion and filter semantics. No classifier, database or hardware inventory cache changes. Board capability and candidate categories remain separate pending review.
+
 # v0.3.28 — Board shortcuts and vendor-grouped explorer
 
 - Move direct board profile links to the top of expanded commit and event details; remove redundant Related hardware / news actions throughout the shared news tables.

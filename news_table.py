@@ -217,7 +217,7 @@ def render_board_timeline(timeline, statuses, release_text):
         stamp=rows[0]['committed'][:16].replace('T',' ')
         labels=list(dict.fromkeys(r['label'] for r in rows))
         signals=' · '.join(labels[:2])+ (f' · +{len(labels)-2} more' if len(labels)>2 else '')
-        out.append(f'<tr><td>{esc(stamp)}</td><td title="{esc(" · ".join(labels))}">{esc(signals)}</td><td data-sort-value="{len(rows)}"><details><summary>{len(rows)} milestone{"s" if len(rows)!=1 else ""}</summary><ul>')
+        out.append(f'<tr data-commit-time="{esc(rows[0]["committed"])}"><td data-sort-value="{esc(rows[0]["committed"])}">{esc(stamp)}</td><td title="{esc(" · ".join(labels))}">{esc(signals)}</td><td data-sort-value="{len(rows)}"><details><summary>{len(rows)} milestone{"s" if len(rows)!=1 else ""}</summary><ul>')
         for r in rows:
             path=r['path']; href=f'{UPSTREAM}/blob/{quote(sha,safe="")}/{quote(path,safe="/")}'
             link=f' · <a href="{esc(href)}">{icon("github")} {esc(path)}</a>' if path else ''

@@ -111,3 +111,39 @@
   function start(){title();scan(document);new MutationObserver(records=>{for(const r of records){if(r.type==='attributes'&&r.target.matches('a'))link(r.target);else for(const el of r.addedNodes)scan(el);}}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* Freshness is based on the original UTC commit time, never collection time.
+ * Update in the browser so unchanged HTML does not need rebuilding as it ages. */
+(()=>{
+  const selector='tr.pulse-news-row[data-time], [data-commit-time]';
+  const hour=3600000;
+  function ageBand(value,now=Date.now()){
+    // Reject date-only, timezone-less, invalid and future timestamps.
+    if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value||''))return '';
+    const age=now-Date.parse(value);
+    return age>=0&&age<4*hour?'last':age>=4*hour&&age<12*hour?'recent':age>=12*hour&&age<24*hour?'today':'';
+  }
+  function decorate(el,now=Date.now()){
+    const band=ageBand(el.dataset.commitTime||el.dataset.time,now);
+    const host=el.matches('tr')?el.cells[0]:el;
+    if(!host)return;
+    for(const name of ['last','recent','today'])el.classList.toggle('pulse-fresh-'+name,band===name);
+    const badge=host.querySelector(':scope > .pulse-fresh-badge');
+    if(band!=='last'){badge?.remove();return;}
+    if(badge)return;
+    const label=document.createElement('span');label.className='pulse-fresh-badge';label.textContent='last';label.title='Commit from the last 4 hours';label.setAttribute('aria-label','Commit from the last 4 hours');
+    if(el.matches('tr.pulse-news-row'))host.append(label);else host.prepend(label);
+  }
+  function scan(root=document,now=Date.now()){
+    if(root.matches?.(selector))decorate(root,now);
+    root.querySelectorAll?.(selector).forEach(el=>decorate(el,now));
+  }
+  function start(){
+    scan();
+    new MutationObserver(records=>{const now=Date.now();for(const r of records){if(r.type==='attributes'){if(r.target.matches(selector))decorate(r.target,now);else if(r.target.matches('.pulse-fresh-last,.pulse-fresh-recent,.pulse-fresh-today'))decorate(r.target,now);}else for(const el of r.addedNodes)if(el.nodeType===1)scan(el,now);}}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-time','data-commit-time']});
+    setInterval(()=>{if(!document.hidden)scan();},30000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)scan();});
+  }
+  window.PulseFreshness={ageBand,scan};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();

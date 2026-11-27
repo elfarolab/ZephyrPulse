@@ -7,7 +7,7 @@ Zensical build. It does not install or launch Chromium.
 The `Extended browser and renderer tests` workflow is manual: Actions →
 Extended browser and renderer tests → Run workflow. It builds the same
 fixture, checks byte stability after an unrelated commit and two cached
-renderer builds, and runs all eight Chromium smoke tests. Failures remain
+renderer builds, and runs all nine Chromium smoke tests. Failures remain
 failures; the manual workflow is not part of automatic CI.
 
 ## Local testing
@@ -56,3 +56,8 @@ The table-controls browser smoke test also covers vendor-grouped Board Explorer:
 collapsed defaults, expand/collapse, exact contextual filters, vendor counts,
 child table sorting and mobile access. News detail regressions verify that
 board shortcuts precede commit titles and redundant related-search links are absent.
+
+The freshness regression test (`python tests/freshness_browser_smoke.py`) uses a
+controlled browser clock to verify the four-, twelve- and twenty-four-hour
+thresholds, light/dark colors, mobile badge geometry, dynamic table updates,
+filtering, sorting, expansion and automatic expiry.
