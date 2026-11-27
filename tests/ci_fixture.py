@@ -18,9 +18,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII='
 BROWSER_TESTS = ('news_browser_smoke.py', 'table_browser_smoke.py', 'browser_smoke.py',
-                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'rendered_smoke.py')
+                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'category_layout_browser_smoke.py', 'rendered_smoke.py')
 REQUIRED = ('index.html', 'boards.html', 'watchlist.xml', 'intelligence.json',
-            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html')
+            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html', 'all.html', 'releases.html', 'soc.html')
 
 
 def run(cwd, *args):
@@ -99,6 +99,8 @@ def exercise(work, extended):
             raise RuntimeError(f'Missing fixture output: {name}')
     baseline = board_hashes(site)
     news = json.loads((site / 'data/news-view.json').read_text())
+    if set(news['commit_files']) != {e['sha'] for e in news['events']}:
+        raise RuntimeError('Expected complete manifest coverage for synthetic commits')
     drivers = [e for e in news['events'] if e['kind'] == 'driver']
     if len(drivers) != 2 or len({e['sha'] for e in drivers}) != 1:
         raise RuntimeError('Expected two raw driver events from one fixture commit')

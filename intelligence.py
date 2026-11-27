@@ -329,7 +329,7 @@ def get_prs(db,cfg,now):
         result=json.loads(old[0]) if old else {'items':[],'scanned':0}; return {**result,'status':'stale' if old else 'unavailable'}
 
 
-def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None,board_images=None,commit_files=None):
+def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None,board_images=None,commit_files=None,dynamic_news=False):
     policy=policy or {}
     from comparison import comparison_data, canonical, FEATURES
     preferences=preferences or {}
@@ -364,12 +364,6 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         if s.get('first_release'):
             lts=s.get('lts_tags',[]); return f"Commit in {s['first_release']} · latest tracked containing tag {s['latest_release']}" + (f" · LTS-tagged: {', '.join(lts)}" if lts else '')
         return 'Not in tracked releases — exact commit' if s.get('status')=='main_only' else 'Release inclusion unknown'
-    def subject_link(r):
-        label=md(r['subject']); url=r.get('board_profile_url')
-        if url: return f'[{label}]({url})'
-        links=' · '.join(f'[{md(boards[k]["name"])}]({profile_url(boards[k])})' for k in r.get('boards',[]) if k in boards)
-        return label+(' · '+links if links else '')
-    def commit_link(sha): return f'[{sha[:10]}]({UPSTREAM}/commit/{sha})'
     def source_link(sha,path): return f'[source]({UPSTREAM}/blob/{sha}/{quote(path,safe="/")})'
     def save(name,lines):
         path=docs/name
@@ -417,10 +411,8 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
                 lines += ['</tbody></table></div></details>','']
             lines += ['']
         if not b['targets'] and not b['metadata']: lines += ['_No target metadata found._','']
-        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). [Global history coverage](../boards.md).",'','| UTC date | Signal | Evidence | Release inclusion |','|---|---|---|---|']
-        for m in timeline:
-            lines.append(f"| {m['committed'][:10]} | {md(m['label'])} ({md(m['confidence'])}) | {commit_link(m['sha'])} · {source_link(m['sha'],m['path'])} | {md(release_text(statuses.get(m['sha'],{})))} |")
-        if not timeline: lines += ['| — | No retained milestone | — | — |']
+        from news_table import render_board_timeline
+        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). [Global history coverage](../boards.md). One row per commit; expand evidence for individual signals. These are retained milestones, not complete commit file lists.",'',render_board_timeline(timeline,statuses,release_text)]
         lines += ['','## Raw board-folder devicetree evidence','','These file-local declarations may apply to different variants or boards sharing the folder. Includes, overlays and Kconfig are not resolved.','','| File | Node | Explicit status | Compatible |','|---|---|---|---|']
         for r in b['raw']: lines.append(f"| {source_link(revision,r['path'])} ({md(PurePosixPath(r['path']).name)}) | {md(r['node'])} | {md(r['status'] or 'not explicit')} | {md(r['compatible'] or '—')} |")
         if not b['raw']: lines += ['| — | — | No local evidence | — |']
@@ -448,9 +440,21 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         release_lines.append(f'| {md(series)} | {md(status)} | {md(eol or "not announced")} |')
     if not policy.get('series'): release_lines += ['| — | Not configured | — |']
     release_lines += ['','Planned releases are listed separately in the official policy; a plan does not imply a release exists.']
-    release_lines += ['','## Recent hardware news: release inclusion','','| UTC date | Change | Release status | Commit |','|---|---|---|---|']
-    for r in rows:
-        if r['kind'] not in ('other','docs'): release_lines.append(f"| {r['committed'][:10]} | {subject_link(r)} | {md(release_text(r['release']))} | {commit_link(r['sha'])} |")
+    from news_table import render_grouped_news
+    hardware_rows=[r for r in rows if r['kind'] not in ('other','docs')]
+    if dynamic_news:
+        grouped = defaultdict(list)
+        for r in hardware_rows: grouped[r['sha']].append(r)
+        fallback=['<noscript><ul>']
+        for sha, events in grouped.items():
+            r=events[0]
+            links=' · '.join(f'<a href="{escape(profile_url(boards[k]),quote=True)}">{escape(boards[k]["name"])}</a>' for k in sorted({k for e in events for k in e.get('boards',[])}) if k in boards)
+            fallback.append(f'<li>{escape(r["committed"][:10])} · <a href="{UPSTREAM}/commit/{sha}">{escape(r["commit_subject"])}</a> · {escape(release_text(r["release"]))}{" · "+links if links else ""}</li>')
+        fallback.append('</ul></noscript>')
+        release_content='<div data-pulse-category="release_news"></div>\n\n'+'\n'.join(fallback)
+    else:
+        release_content=render_grouped_news(hardware_rows,'release_news',statuses,boards,idx,commit_files)
+    release_lines += ['', '## Recent hardware news: release inclusion', '', 'One row per hardware-related commit. Expand for classified changes, affected files and exact release inclusion.', '', release_content, '', '[Raw news JSON](events.json) · [All commits](all.md)']
     save('releases.md',release_lines)
     pr_lines=['# Upcoming hardware support','',stamp,'Open pull requests are proposals, **not merged or released support**. This optional GitHub API view scans recently updated PRs, matching hardware-related titles and labels; it is not an exhaustive roadmap.','',f"Snapshot status: **{md(prs['status'])}** · scanned {prs.get('scanned',0)} PRs · {'bounded / more pages available' if prs.get('truncated') else 'no additional pages reported'} · last successful refresh: {md(prs.get('updated','none'))}",'','| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
     # Enrich a publication-only copy; do not mutate the cached upstream PR snapshot.

@@ -2,9 +2,14 @@
 import re
 from collections import defaultdict
 
-GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change'}
+GROUPED = {'driver', 'sensor', 'docs', 'other', 'dts', 'soc', 'board_change', 'board', 'board_candidate', 'board_feature'}
+SCOPED = {'soc', 'board_change', 'board', 'board_candidate', 'board_feature'}
 DRIVERS = {'driver', 'sensor'}
 GENERIC = {'main', 'common', 'core', 'init', 'utils', 'util', 'test', 'tests', 'driver', 'drivers', 'config', 'cmakelists', 'kconfig', 'makefile', 'readme', 'sample', 'shell', 'api', 'types', 'module', 'binding', 'bindings', 'build', 'index'}
+
+
+def group_unit(category):
+    return 'capability signals' if category == 'board_feature' else 'commit groups' if category in SCOPED else 'commits'
 
 
 def unique(values):
@@ -54,9 +59,11 @@ def group_scope(r, category):
     path = r.get('path') or ''
     parts = path.split('/')
     subject = r['subject']
-    if category == 'board_change':
+    if category in {'board_change', 'board', 'board_candidate', 'board_feature'}:
         folder = '/'.join(parts[:3]) if len(parts) >= 4 and parts[0] == 'boards' else ''
-        return (folder, subject), subject
+        # Distinct capability signals must not disappear behind a generic commit title.
+        evidence = (r.get('change_type'),r.get('detail'),r.get('confidence')) if category == 'board_feature' else ()
+        return (folder, subject, *evidence), subject
     if category == 'soc':
         # Preserve named semantic SoC events; generic source filenames instead
         # group by their upstream vendor/family directory, not the basename.
@@ -91,13 +98,13 @@ def group_events(items, category):
 
 
 def recent_files(db, repo):
-    """Cache exact first-parent diff manifests for grouped commits in the recent window."""
+    """Cache exact first-parent diff manifests for all commits in the recent window."""
     import logging
     from performance import load, save
     key = 'recent-commit-files:v1'
     old = load(db, key) or {}
     result = {}
-    for sha, in db.execute('SELECT DISTINCT sha FROM events WHERE kind IN ('+','.join('?' for _ in GROUPED)+') ORDER BY sha', tuple(sorted(GROUPED))):
+    for sha, in db.execute('SELECT sha FROM commits ORDER BY sha'):
         if sha in old:
             result[sha] = old[sha]
             continue

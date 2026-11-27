@@ -1,3 +1,12 @@
+# v0.3.25 — Category-aware tables and consistent commit navigation
+
+- Use category-specific sortable columns across all ten news pages. Remove constant category columns and filters, retain meaningful hardware identifiers, and give the complete upstream commit title more space. Sensors omit the redundant subsystem column; SoCs show a genuine SoC/family scope; documentation, Devicetree and other news omit generic filenames from the collapsed row.
+- Group new-board and candidate evidence by commit and conservative board/target scope. Group capability events only when their board/target, signal, confidence and commit agree; keep distinct capabilities visible. Add exact scope dropdowns, maintain board-profile links and preserve complete changed-file manifests and original evidence.
+- Convert All commits and recent hardware release inclusion to sortable, expandable commit-level tables. Mixed categories remain visible and filterable. Preserve no-JavaScript summaries, exact release metadata and raw feeds. Collect manifests for every retained commit.
+- Group board support timelines by historical commit, with expandable original milestones and evidence links. Do not claim complete historical manifests or invent missing commit titles. Keep board explorer, comparator, vendor metrics, release tags, PRs and personal watched-event semantics intact.
+- Build browser-generated grouped detail panels only on expansion, while searching all changed paths and classified evidence before expansion. Preserve full-dataset header sorting, mobile sort controls, accessible expansion and pagination. Add unit and isolated Chromium regression tests; automatic CI remains lightweight.
+- No database or classifier migration. Existing source-based disposable hardware cache fingerprints change; expect one cold run and a larger initial site upload.
+
 # v0.3.24 — Commit-oriented hardware news
 
 - Drivers and Sensors display one row per commit, with subsystem/driver identifiers, full original commit descriptions, affected-file counts, exact release inclusion and short SHA. The description, SHA and expansion triangle toggle the same detail panel; driver names are not filename-filter links.
