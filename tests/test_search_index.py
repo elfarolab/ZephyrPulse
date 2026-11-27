@@ -40,8 +40,9 @@ class DisabledSearchIndexTests(TestCase):
         def run(work, text, clean):
             items = [{'title': 'stale'}] if work.name == '.pulse-render-cache' else []
             self.fake_run(work, text, clean, json.dumps({'items': items}))
-        with patch.object(g, '_run', side_effect=run) as mocked:
+        with patch.object(g, '_run', side_effect=run) as mocked, self.assertLogs(level='ERROR') as logs:
             out = build_site(self.root, g, 'https://example.invalid/')
+        self.assertIn('retrying a clean staged build', logs.output[0])
         self.assertEqual(mocked.call_count, 2)
         self.assertFalse((self.root/'.pulse-render-cache').exists())
         self.assertEqual(json.loads((out/'search.json').read_text())['items'], [])

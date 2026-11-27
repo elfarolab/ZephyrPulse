@@ -6,6 +6,7 @@ The default runs one real render; --extended adds stability/cache/browser checks
 import argparse
 import base64
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,9 +18,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jP1sAAAAASUVORK5CYII='
 BROWSER_TESTS = ('news_browser_smoke.py', 'table_browser_smoke.py', 'browser_smoke.py',
-                 'link_icons_browser_smoke.py', 'rendered_smoke.py')
+                 'link_icons_browser_smoke.py', 'grouped_news_browser_smoke.py', 'rendered_smoke.py')
 REQUIRED = ('index.html', 'boards.html', 'watchlist.xml', 'intelligence.json',
-            'compare.html', 'settings.html', 'hardware-search.html')
+            'compare.html', 'settings.html', 'hardware-search.html', 'driver.html')
 
 
 def run(cwd, *args):
@@ -54,6 +55,14 @@ def create_upstream(repo):
     run(repo, 'git', 'add', '.')
     run(repo, 'git', 'commit', '-m', 'new board')
     run(repo, 'git', 'tag', 'v4.0.0')
+    driver = repo / 'drivers/i2c'
+    driver.mkdir(parents=True)
+    (driver / 'Kconfig.omap').write_text('config I2C_OMAP\n    bool "Fixture driver"\n')
+    (driver / 'i2c_omap.c').write_text('/* Synthetic driver source. */\n')
+    (repo / 'doc').mkdir()
+    (repo / 'doc/driver-note.rst').write_text('Synthetic driver documentation\n')
+    run(repo, 'git', 'add', '.')
+    run(repo, 'git', 'commit', '-m', 'drivers: i2c: omap: add fixture support')
 
 
 def board_hashes(site):
@@ -89,6 +98,13 @@ def exercise(work, extended):
         if not (site / name).is_file():
             raise RuntimeError(f'Missing fixture output: {name}')
     baseline = board_hashes(site)
+    news = json.loads((site / 'data/news-view.json').read_text())
+    drivers = [e for e in news['events'] if e['kind'] == 'driver']
+    if len(drivers) != 2 or len({e['sha'] for e in drivers}) != 1:
+        raise RuntimeError('Expected two raw driver events from one fixture commit')
+    files = news['commit_files'][drivers[0]['sha']]
+    if {f['path'] for f in files} != {'drivers/i2c/Kconfig.omap', 'drivers/i2c/i2c_omap.c', 'doc/driver-note.rst'}:
+        raise RuntimeError('Incomplete fixture commit file manifest')
     validate_search(project)
     if not extended:
         print('Sample website build passed.')
@@ -96,7 +112,7 @@ def exercise(work, extended):
     def check_stability():
         if board_hashes(site) != baseline:
             raise RuntimeError('Board HTML changed after unrelated input or renderer mode change')
-    (repo / 'doc').mkdir()
+    (repo / 'doc').mkdir(exist_ok=True)
     (repo / 'doc/unrelated.rst').write_text('Unrelated documentation\n')
     run(repo, 'git', 'add', '.')
     run(repo, 'git', 'commit', '-m', 'unrelated documentation')

@@ -329,7 +329,7 @@ def get_prs(db,cfg,now):
         result=json.loads(old[0]) if old else {'items':[],'scanned':0}; return {**result,'status':'stale' if old else 'unavailable'}
 
 
-def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None,board_images=None):
+def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_url,hours=72,policy=None,preferences=None,snapshots=None,board_images=None,commit_files=None):
     policy=policy or {}
     from comparison import comparison_data, canonical, FEATURES
     preferences=preferences or {}
@@ -477,7 +477,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     comparison=comparison_data(boards,snapshots,history,vendors)
     write_rss(docs/'watchlist.xml',watched,site_url,'Zephyr Pulse — Watchlist')
     from browser_data import publish_catalog
-    publish_catalog(docs, comparison, {'updated':now.isoformat(),'head':head,'coverage':coverage,'boards':board_data,'watchlist':watch,'vendors':vendors,'releases':tags,'release_policy':policy,'pull_requests':prs,'events':rows,'preferences':preferences})
+    publish_catalog(docs, comparison, {'updated':now.isoformat(),'head':head,'coverage':coverage,'boards':board_data,'watchlist':watch,'vendors':vendors,'releases':tags,'release_policy':policy,'pull_requests':prs,'events':rows,'preferences':preferences,'commit_files':commit_files or {}})
     (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'events':rows,'window_hours':hours},ensure_ascii=False),encoding='utf-8')
     # Add a second, independent watched-news section without filtering the original homepage.
     home=docs/'index.md'; body=home.read_text(); marker='<!-- pulse-watchlist-slot -->'

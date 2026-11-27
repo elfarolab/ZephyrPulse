@@ -355,7 +355,7 @@ def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.
     return f'<span class="pulse-icon pulse-i-{escape(name, quote=True)}" aria-hidden="true"></span>'
 
-def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_news=False):
+def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_news=False, commit_files=None):
     from intelligence import board_ids, folder_index
     statuses = statuses or {}; boards=boards or {}; idx=folder_index(boards)
     docs.mkdir(parents=True,exist_ok=True)
@@ -364,21 +364,28 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
     for r in rows: counts[r['kind']]+=1
     header = f'Updated **{now:%Y-%m-%d %H:%M UTC}** · rolling {hours} hours · upstream Git\n\n'
     front='---\nhide:\n  - toc\n---\n\n'
-    from news_table import render_news_table, subject_categories
+    from news_table import render_news_table, subject_categories, render_grouped_news
+    from news_groups import GROUPED, group_events
+    by_category={k:[r for r in rows if r['kind']==k] for k in CATEGORIES}
+    group_counts={k:len(group_events(by_category[k], k)) for k in GROUPED}
     related = subject_categories(rows)
     def blocks(items):
         return render_news_table(items, statuses, boards, idx, related)
     home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'Hardware-focused news from upstream Zephyr. Source evidence is not proof of working hardware.','','<div class="pulse-stats">']
     for k,v in CATEGORIES.items():
-        home.append(f'<a href="{k}.html" class="pulse-cat-{k}"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><strong>{counts[k]}</strong><span class="pulse-stat-label">{escape(v)}</span></a>')
+        unit = ('commit groups' if k in {'soc','board_change'} else 'commits') if k in GROUPED else 'events'
+        count = group_counts.get(k, counts[k])
+        home.append(f'<a href="{k}.html" class="pulse-cat-{k}" title="{count} {unit} · {counts[k]} classified events"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><span class="pulse-stat-count"><strong>{count}</strong> <small class="pulse-stat-unit">{unit}</small></span><span class="pulse-stat-label">{escape(v)}</span></a>')
     home += ['</div>','','<div class="pulse-tools">']
     for href,label,ico in [('compare','Compare hardware','compare'),('hardware-search','Hardware search','search'),('boards','Board explorer','board'),('settings','Settings','settings')]:
         home.append(f'<a href="{href}.html">{icon(ico)} {label}</a>')
     home += ['</div>','','<!-- pulse-watchlist-slot -->','','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
     (docs/'index.md').write_text('\n'.join(home))
     for k,v in CATEGORIES.items():
-        content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else blocks([r for r in rows if r['kind']==k]))
-        (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+f'{counts[k]} events · newest first.\n\n'+content)
+        content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else (render_grouped_news(by_category[k], k, statuses, boards, idx, commit_files) if k in GROUPED else blocks(by_category[k])))
+        unit = 'commit groups' if k in {'soc','board_change'} else 'commits'
+        summary = f'{group_counts[k]} {unit} · {counts[k]} classified events' if k in GROUPED else f'{counts[k]} events'
+        (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+summary+' · newest first.\n\n'+content)
     (docs/'all.md').write_text(front+'# All commits\n\n'+header+'\n'.join(f"- {r['committed'][:16].replace('T',' ')} UTC · [{md(r['subject'])}]({UPSTREAM}/commit/{r['sha']})" for r in db.execute('SELECT * FROM commits ORDER BY committed DESC,sha')))
     (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'window_hours':hours,'events':[dict(r) for r in rows]},indent=2,ensure_ascii=False))
     write_rss(docs/'feed.xml',rows,site_url)
@@ -452,12 +459,14 @@ def main():
             with stage('Remove obsolete upstream branding'):
                 remove_legacy_logo(ROOT/'docs')
             with stage('Generate recent news Markdown and feeds'):
-                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False))
+                from news_groups import recent_files
+                commit_files=recent_files(db,repo)
+                render(db,ROOT/'docs',now,int(cfg.get('window_hours',72)),site_url,statuses,boards,dynamic_news=not cfg.get('generator',{}).get('native_search',False),commit_files=commit_files)
             from board_images import publish as publish_board_images
             with stage('Discover and publish board images'):
                 board_images=publish_board_images(repo,head,boards,ROOT/'docs',cfg.get('board_images',True))
             with stage('Generate board pages, JSON and intelligence feeds'):
-                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),policy,cfg.get('preferences',{}),snapshots,board_images=board_images)
+                render_extra(db,ROOT/'docs',now,head,boards,coverage,tags,prs,statuses,cfg.get('watchlist',{}),site_url,int(cfg.get('window_hours',72)),policy,cfg.get('preferences',{}),snapshots,board_images=board_images,commit_files=commit_files)
         finally:
             db.close()
         if not args.no_build:

@@ -63,7 +63,7 @@ def publish_catalog(docs, comparison, payload):
     # Keep lightweight views for pages that do not need the whole hardware catalog.
     associated = {key for e in payload.get('events', []) for key in e.get('boards', [])}
     common = {k: payload[k] for k in ('updated', 'watchlist', 'preferences') if k in payload}
-    news = {**common, 'boards': [b for b in payload.get('boards', []) if b['id'] in associated], 'events': payload.get('events', [])}
+    news = {**common, 'boards': [b for b in payload.get('boards', []) if b['id'] in associated], 'events': payload.get('events', []), 'commit_files': payload.get('commit_files', {})}
     prefs = {**{k:v for k,v in common.items() if k != 'updated'}, 'comparison': {'snapshots': comparison.get('snapshots', [])}}
     news_bytes = encoded(news); prefs_bytes = encoded(prefs)
     write_changed(docs / 'data' / 'news-view.json', news_bytes)
@@ -76,7 +76,7 @@ def publish_catalog(docs, comparison, payload):
     dynamic.update(target_activity=activity, board_activity=board_activity)
     dynamic_bytes = encoded(dynamic)
     write_changed(docs / 'data' / 'activity.json', dynamic_bytes)
-    payload = {k:v for k,v in payload.items() if k not in dynamic and k!='events'}
+    payload = {k:v for k,v in payload.items() if k not in dynamic and k not in ('events','commit_files')}
     payload = {**payload, 'schema_version': 3, 'comparison': comparison}
     logging.info('Browser activity: %.2f MiB', len(dynamic_bytes)/1048576)
     raw = encoded(payload)

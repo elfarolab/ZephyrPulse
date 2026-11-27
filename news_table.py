@@ -85,3 +85,79 @@ def render_category_summary(items, statuses, boards, idx, preview=3):
         out.append(f'<p class="pulse-category-more"><a href="{k}.html">View all {len(rows)} {escape(label.lower())} →</a></p></details>')
     out.append('</div>')
     return '\n'.join(out)
+
+
+def render_grouped_news(items, category, statuses=None, boards=None, idx=None, commit_files=None):
+    import json
+    from news_groups import group_events, manifest_files, DRIVERS
+    from pulse import UPSTREAM, CATEGORIES, CATEGORY_ICONS, icon
+    from intelligence import board_ids, folder_index
+    from board_links import BoardLinks, profile_url
+    if not items:
+        return '_No matching events in this window._\n'
+    statuses, boards = statuses or {}, boards or {}
+    idx = idx if idx is not None else folder_index(boards)
+    resolver = BoardLinks(boards)
+    groups = group_events(items, category)
+    def attr(value): return escape(str(value), quote=True)
+    def action(label, href, glyph):
+        return f'<a class="pulse-detail-link" href="{attr(href)}">{icon(glyph)} <span>{escape(label)}</span></a>'
+    def expand_button(text):
+        return f'<button type="button" class="pulse-commit-expand" aria-expanded="true">{escape(text)}</button>'
+    driver = category in DRIVERS
+    headers = ('UTC date / time', 'Subsystem' if driver else 'Category', 'Driver' if driver else 'Subject / target', 'Commit description', 'Files', 'Release', 'Commit')
+    unit = 'commit groups' if category in {'soc','board_change'} else 'commits'
+    out = [f'<div class="pulse-news-table pulse-grouped-news" data-pulse-news="100" data-group-unit="{unit}" data-group-category="{category}">',
+           f'<p class="pulse-group-summary">{len(groups)} {unit} · {len(items)} classified events. File counts are for the complete commit when available; + means partial evidence.</p><div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="7"></colgroup><thead><tr>',
+           '<th scope="col" class="pulse-news-expand"><span class="pulse-sr-only">Details</span></th>']
+    out.extend(f'<th scope="col">{escape(h)}</th>' for h in headers)
+    out.append('</tr></thead><tbody>')
+    for g in groups:
+        rows, sha = g['rows'], g['sha']; r = rows[0]
+        manifest = (commit_files or {}).get(sha)
+        files, extra = manifest_files(g, manifest)
+        file_count = len({p for p, *_ in files})
+        headline = r.get('commit_subject') or r['subject']; stamp = r['committed'][:16].replace('T',' ')
+        rel = statuses.get(sha, r.get('release',{})); release = rel.get('first_release') or ('Not in tracked releases' if rel.get('status')=='main_only' else 'Unknown')
+        ids = set()
+        for e in rows:
+            associated = e.get('boards') if 'boards' in e else board_ids(e, boards, idx)
+            ids.update(associated); key = resolver.resolve(e, associated)
+            if key is not None: ids.add(key)
+        linked = [boards[k] for k in sorted(ids) if k in boards]
+        vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)
+        data = {'kind':category,'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(g['subjects']),'subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows)}
+        attrs = ' '.join(f'data-{k}="{attr(v)}"' for k,v in data.items())
+        out.append(f'<tr class="pulse-news-row pulse-cat-{category}" {attrs}>')
+        out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {attr(headline)}"><span aria-hidden="true">▾</span></button></td>')
+        vals = [stamp,g['subsystem'] if driver else CATEGORIES[category],g['driver'] if driver else g['subject'],headline,str(file_count) if manifest is not None else f'{file_count}+',release,sha[:10]]
+        for i,v in enumerate(vals):
+            cell = expand_button(v) if i in (3,6) else escape(v)
+            if i==1 and not driver: cell = icon(CATEGORY_ICONS[category])+' '+cell
+            if i==2 and not driver and g['subjects']==[v]:
+                key=resolver.resolve(r, ids)
+                if key is not None: cell=f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}">{escape(v)}</a>'
+                else: cell=f'<a class="pulse-subject-filter" href="{category}.html?subject={quote(v,safe="")}" data-subject="{attr(v)}">{escape(v)}</a>'
+            sort_value = f' data-sort-value="{file_count}"' if i==4 else ''
+            out.append(f'<td class="pulse-news-col-{i}" title="{attr(v)}"{sort_value}>{cell}</td>')
+        out.append('</tr>')
+        out.append(f'<tr class="pulse-news-detail"><td colspan="8"><article class="pulse-news-detail-panel"><strong>{escape(headline)}</strong><p>{escape(stamp)} UTC · {escape(CATEGORIES[category])} · {escape(release)} (exact commit inclusion)</p>')
+        if driver: out.append(f'<p>Subsystem: {escape(g["subsystem"])} · Driver: {escape(g["driver"])}</p>')
+        if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
+        heading = f'Affected files ({file_count}) — complete commit' if manifest is not None else f'Known evidence files ({file_count}) — complete diff unavailable'
+        out.append(f'<p><strong>{heading}</strong> · {len(rows)} classified events in this category/group</p><ul class="pulse-affected-files">')
+        for path,revision,status,old_path,evidence in files+extra:
+            url = f'{UPSTREAM}/blob/{quote(revision,safe="")}/{quote(path,safe="/")}'
+            note = {'A':'Added','M':'Modified','D':'Deleted','R':'Renamed','C':'Copied','T':'Type changed'}.get(status,'Additional evidence' if manifest is not None else '')
+            if old_path: note += ' from '+old_path
+            out.append('<li>'+action(path,url,'github')+(' · '+escape(note) if note else '')+(' (before removal)' if revision!=sha else ''))
+            if evidence: out.append('<ul>')
+            for e in evidence:
+                out.append(f'<li>{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
+            if evidence: out.append('</ul>')
+            out.append('</li>')
+        for e in rows:
+            if not e.get('path'): out.append(f'<li>{escape(e["subject"])} · {escape(e.get("change_type") or "Unknown")} · {escape(e.get("confidence") or "unknown")}: {escape(e["detail"])}</li>')
+        out.append('</ul><p class="pulse-news-links">'+action('View upstream commit',f'{UPSTREAM}/commit/{quote(sha,safe="")}','commit')+' '+ ' '.join(action(b['name'],profile_url(b),'board') for b in linked)+' '+action('Related hardware / news','hardware-search.html?subject='+quote(sha,safe=''),'search')+'</p></article></td></tr>')
+    out.append('</tbody></table></div></div>')
+    return '\n'.join(out)

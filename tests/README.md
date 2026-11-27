@@ -7,7 +7,7 @@ Zensical build. It does not install or launch Chromium.
 The `Extended browser and renderer tests` workflow is manual: Actions →
 Extended browser and renderer tests → Run workflow. It builds the same
 fixture, checks byte stability after an unrelated commit and two cached
-renderer builds, and runs all five Chromium smoke tests. Failures remain
+renderer builds, and runs all six Chromium smoke tests. Failures remain
 failures; the manual workflow is not part of automatic CI.
 
 ## Local testing
@@ -38,3 +38,8 @@ It does not copy private configuration, credentials, generated docs, production
 site, renderer cache or SQLite state. The temporary directory is cleaned on exit.
 It does not publish to Cloudflare. Do not run `rendered_smoke.py` directly against
 production output: that test expects the synthetic `kit/chip` board.
+
+The grouped-news browser test can also be run directly with
+`python tests/grouped_news_browser_smoke.py`; it exercises commit aggregation,
+complete file lists, numeric file-count sorting across pages, filters, keyboard
+expansion, and responsive layout without accessing the production site.

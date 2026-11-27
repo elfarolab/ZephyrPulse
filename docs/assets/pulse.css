@@ -309,3 +309,24 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 .pulse-i-rss{--pulse-icon:url("icons/rss.svg");}
 .pulse-i-json{--pulse-icon:url("icons/json.svg");}
 .pulse-i-external{--pulse-icon:url("icons/external.svg");}
+
+/* Commit-oriented category rows. All data headers share the existing sort control. */
+.pulse-grouped-news .pulse-news-list th:nth-child(3){width:6.5rem}
+.pulse-grouped-news .pulse-news-list th:nth-child(4){width:15%}
+.pulse-grouped-news .pulse-news-list th:nth-child(6){width:3.2rem}
+.pulse-grouped-news .pulse-news-col-3 {white-space:normal;overflow-wrap:anywhere;}
+.pulse-commit-expand {font:inherit;color:var(--md-typeset-a-color,#087e83);text-align:left;background:none;border:0;padding:0;cursor:pointer;max-width:100%;overflow-wrap:anywhere;}
+.pulse-commit-expand:hover {text-decoration:underline;}
+.pulse-commit-expand:focus-visible {outline:2px solid currentColor;outline-offset:2px;}
+.pulse-affected-files {margin:.3rem 0 .65rem;padding-left:1.2rem;}
+.pulse-affected-files li {margin:.2rem 0;overflow-wrap:anywhere;}
+.pulse-affected-files ul {margin:.2rem 0 .45rem;padding-left:1.1rem;}
+.pulse-group-summary {font-size:.72rem;}
+@media (max-width:48em){
+  .pulse-grouped-news .pulse-news-col-3 {grid-row:1;grid-column:2/4;}
+  .pulse-grouped-news .pulse-news-col-2 {grid-row:2;grid-column:2/4;}
+  .pulse-grouped-news .pulse-news-row .pulse-news-col-4 {display:block;grid-row:4;grid-column:2;}
+  .pulse-grouped-news .pulse-news-col-4::before {content:'Files: ';}
+  .pulse-grouped-news .pulse-news-row .pulse-news-col-6 {display:block;grid-row:4;grid-column:3;}
+}
+.pulse-stats .pulse-stat-unit {font-size:.55rem;font-weight:400;color:var(--md-default-fg-color--light,#64748b);}

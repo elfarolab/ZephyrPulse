@@ -1,3 +1,11 @@
+# v0.3.24 — Commit-oriented hardware news
+
+- Drivers and Sensors display one row per commit, with subsystem/driver identifiers, full original commit descriptions, affected-file counts, exact release inclusion and short SHA. The description, SHA and expansion triangle toggle the same detail panel; driver names are not filename-filter links.
+- Group Documentation, Other changes and Devicetree by commit, and SoCs/Board maintenance by commit and conservative hardware scope. Keep New boards, Possible board support and Board capability changes event-oriented. Dashboard cards and category counters identify their units; watchlists and raw feeds retain individual evidence events.
+- Publish cached first-parent Git changed-file manifests in the news dataset. Expanded groups list all changed paths, including additions, removals and renames, with revision-pinned source links and original classified evidence; extra evidence paths and incomplete manifests are explicitly identified. No schema or classifier migration. Existing disposable analysis cache fingerprints change because collector source changes; expect one cold cache run.
+- Preserve full-dataset header sorting, pagination, keyboard expansion, filtering and mobile layout. Add subsystem/driver dropdowns, numeric file-count sorting and source-path search within groups.
+- Add isolated Git and Chromium regression tests and extend the synthetic site fixture. Capture intentionally logged renderer fallback errors in unit tests. Automatic CI remains lightweight; browser checks remain manual.
+
 # v0.3.23 — Lightweight CI and optional integration testing
 
 - Automatic CI runs Python and JavaScript unit tests plus one synthetic Zensical site build on branch pushes and pull requests. Tags do not trigger duplicate runs; superseded runs are cancelled and execution is bounded by a timeout.

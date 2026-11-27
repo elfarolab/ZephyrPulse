@@ -25,7 +25,7 @@
     const persist=()=>{try{storage.setItem(KEY,JSON.stringify(custom));available=true;}catch(_){available=false;}return available;};
     return {get:()=>({...base,...custom}),defaults:()=>({...base}),saved:()=>available,update:patch=>{custom={...custom,...clean(patch)};return persist();},replace:patch=>{custom=clean(patch);return persist();},reset:()=>{custom={};return persist();},export:()=>({version:3,preferences:{...base,...custom}})};
   }
-  function joinCatalog(catalog,dynamic,news){const data={...catalog,...dynamic,events:news.events||[]};data.comparison={...data.comparison,targets:data.comparison.targets.map(t=>({...t,...(dynamic.target_activity?.[t.id]||{})}))};data.boards=(data.boards||[]).map(b=>Object.hasOwn(dynamic.board_activity||{},b.id)?{...b,last_activity:dynamic.board_activity[b.id]}:b);return data;}
+  function joinCatalog(catalog,dynamic,news){const data={...catalog,...dynamic,events:news.events||[],commit_files:news.commit_files||{}};data.comparison={...data.comparison,targets:data.comparison.targets.map(t=>({...t,...(dynamic.target_activity?.[t.id]||{})}))};data.boards=(data.boards||[]).map(b=>Object.hasOwn(dynamic.board_activity||{},b.id)?{...b,last_activity:dynamic.board_activity[b.id]}:b);return data;}
   const api={create,clean,defaults,KEY,joinCatalog};
   if(typeof module!=='undefined'&&module.exports){module.exports=api;return;}
   const base=new URL('../',document.currentScript.src);

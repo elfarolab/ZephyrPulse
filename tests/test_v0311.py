@@ -58,8 +58,9 @@ class CachedRendererTests(TestCase):
         def failure(work,text,clean):
             if work.name=='.pulse-render-cache':raise RuntimeError('cache failure')
             fake_run(work,text,clean)
-        with patch.object(g,'_run',side_effect=failure):
+        with patch.object(g,'_run',side_effect=failure), self.assertLogs(level='ERROR') as logs:
             build_site(self.root,g,'https://example.invalid/')
+        self.assertIn('retrying a clean staged build',logs.output[0])
         self.assertFalse((self.root/'.pulse-render-cache').exists());self.assertTrue((self.root/'site/index.html').exists())
 
 class BatchReleaseTests(TestCase):

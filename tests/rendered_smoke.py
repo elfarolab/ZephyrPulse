@@ -56,6 +56,13 @@ def main():
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
             profile=page.locator('.pulse-news-row .pulse-board-profile-link').first;profile.wait_for();profile.click();page.wait_for_url('**/boards/*.html');page.get_by_role('heading',name='Target capability matrix',exact=True,level=2).wait_for();page.go_back();page.locator('.pulse-news-row').first.wait_for()
             page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'
+            page.set_viewport_size({'width':1440,'height':900});page.goto(base+'driver.html')
+            rows=page.locator('.pulse-news-row:visible');expect(rows).to_have_count(1)
+            expect(rows.first.locator('.pulse-news-col-3')).to_contain_text('drivers: i2c: omap: add fixture support')
+            expect(rows.first.locator('.pulse-news-col-4')).to_have_text('3')
+            rows.first.locator('.pulse-news-col-6 button').click()
+            expect(page.locator('.pulse-news-detail:visible .pulse-affected-files > li')).to_have_count(3)
+            expect(page.locator('.pulse-news-detail:visible').get_by_role('link',name='doc/driver-note.rst')).to_be_visible()
             browser.close()
     finally:server.shutdown();server.server_close();thread.join()
     print('Rendered Zensical site smoke test passed.')
