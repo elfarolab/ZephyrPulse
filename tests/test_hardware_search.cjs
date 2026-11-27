@@ -13,3 +13,12 @@ test('source evidence participates in search, disabled-only features do not',()=
 
 test('board images stay associated with exact board targets',()=>{const image='data/board-images/'+ 'a'.repeat(40)+'.webp';const result=S.records({boards:[{id:'a',image_url:image}],comparison:{targets:[{board_id:'a',target:'a/cpu'},{board_id:'b',target:'b/cpu'}]}});assert.equal(result[0].image,image);assert.equal(result[1].image,undefined);});
 test('exact board news links retain commit and avoid unassociated URLs',()=>{const b={id:'a',name:'kit',url:'boards/kit-abc.html'};const e={kind:'board',subject:'kit',sha:'a'.repeat(40),boards:['a'],board_profile_url:b.url};const result=S.records({boards:[b],events:[e,{...e,subject:'unknown',boards:[]}]});assert.equal(result[0].url,b.url);assert(result[0].commit.endsWith(e.sha));assert.equal(result[1].boardProfile,undefined);assert(result[1].url.endsWith(e.sha));});
+
+test('board targets and same-title news remain distinct; exact-target filter selects only the target',()=>{
+ const url='boards/kit-abc.html', b={id:'a',name:'kit',url};
+ const rows=S.records({boards:[b],comparison:{targets:[{board_id:'a',target:'kit/chip',url}]},events:[{kind:'board_candidate',subject:'kit/chip',sha:'a'.repeat(40),boards:['a'],board_profile_url:url}]});
+ const all=S.filter(rows,{...P.defaults,hardware_query:'*kit*'});
+ assert.deepEqual(all.map(r=>r.kind),['target','board_candidate']);
+ assert(all.every(r=>r.title==='kit/chip'&&r.url===url));
+ assert.deepEqual(S.filter(rows,{...P.defaults,hardware_query:'*kit*',hardware_kind:'target'}).map(r=>r.kind),['target']);
+});

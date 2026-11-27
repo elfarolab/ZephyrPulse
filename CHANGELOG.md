@@ -1,3 +1,9 @@
+# v0.3.22 — Search smoke test synchronization
+
+- Wait for the debounced exact-target search to settle before asserting a unique board card, and scope the universal search test to the Board targets group rather than matching news with the same title. Assert persisted query and result type after reload.
+- Include the root `env/` virtual environment in `.gitignore`, alongside `.venv/`.
+- No production code, CSS, JavaScript, database or configuration changes.
+
 # v0.3.21 — Shared link icons and browser asset freshness
 
 - Decorate ordinary static and dynamically created application links with semantic local SVG icons; retain existing icons, link text, destinations and filtering. Image-only links, heading anchors and theme controls are not decorated.
