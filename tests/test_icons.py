@@ -11,7 +11,7 @@ class IconTests(unittest.TestCase):
         assets=ROOT/'docs/assets'
         self.assertEqual(set(CATEGORIES),set(CATEGORY_ICONS))
         css=(assets/'pulse.css').read_text()
-        for name in set(CATEGORY_ICONS.values())|{'arrow','compare','settings','search','commit','source','github','filter','watch','overview','intelligence'}:
+        for name in set(CATEGORY_ICONS.values())|{'arrow','compare','settings','search','commit','source','github','filter','watch','overview','intelligence','image','history','pr','release','rss','json','external'}:
             self.assertIn(f'.pulse-i-{name}',css)
             self.assertIn(f'icons/{name}.svg',css)
             self.assertEqual(ET.parse(assets/'icons'/f'{name}.svg').getroot().tag,'{http://www.w3.org/2000/svg}svg')

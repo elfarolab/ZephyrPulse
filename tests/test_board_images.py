@@ -72,9 +72,16 @@ class BoardImageTests(TestCase):
         self.assertEqual(detected_format(b'not an image'), 'unknown/unsupported signature')
         self.binary(self.board+'doc/kit.webp', PNG)
         head=self.commit('mismatched image extension');boards=inventory(self.g,head)
-        with self.assertLogs(level='WARNING') as logs:
-            self.assertEqual(publish(self.g,head,boards,self.root/'docs'),{})
+        docs=self.root/'docs'
+        with self.assertLogs(level='INFO') as logs:
+            images=publish(self.g,head,boards,docs)
         self.assertIn('expected webp; detected png', '\n'.join(logs.output))
+        image=next(iter(images.values())); self.assertTrue(image['url'].endswith('.png'))
+        self.assertEqual((docs/image['url']).read_bytes(),PNG)
+        with patch('board_images.read_blobs',return_value=iter(())) as reader:
+            self.assertEqual(publish(self.g,head,boards,docs),images)
+            self.assertEqual(reader.call_args.args[1],[])
+        self.assertTrue(image['path'].endswith('.webp'))
 
     def test_bad_image_and_symlink_not_published(self):
         self.binary(self.board+'doc/kit.png',b'not an image')

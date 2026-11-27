@@ -299,3 +299,13 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 .pulse-detail-link > span:not(.pulse-icon) {min-width:0;overflow-wrap:anywhere;}
 .pulse-detail-link:focus-visible {outline:2px solid currentColor;outline-offset:2px;border-radius:.15rem;}
 .pulse-news-links a.pulse-detail-link .pulse-icon {margin-right:0;}
+
+/* Semantic icons on ordinary application links, including dynamic table cells. */
+.pulse-auto-link-icon {width:1em;height:1em;vertical-align:-.12em;margin-inline-end:.28em;pointer-events:none;}
+.pulse-i-image{--pulse-icon:url("icons/image.svg");}
+.pulse-i-history{--pulse-icon:url("icons/history.svg");}
+.pulse-i-pr{--pulse-icon:url("icons/pr.svg");}
+.pulse-i-release{--pulse-icon:url("icons/release.svg");}
+.pulse-i-rss{--pulse-icon:url("icons/rss.svg");}
+.pulse-i-json{--pulse-icon:url("icons/json.svg");}
+.pulse-i-external{--pulse-icon:url("icons/external.svg");}

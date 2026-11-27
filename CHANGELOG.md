@@ -1,3 +1,9 @@
+# v0.3.21 — Shared link icons and browser asset freshness
+
+- Decorate ordinary static and dynamically created application links with semantic local SVG icons; retain existing icons, link text, destinations and filtering. Image-only links, heading anchors and theme controls are not decorated.
+- Fingerprint local application CSS/JS references in staged HTML after rendering, including nested board pages. Unchanged assets retain their fingerprints; a changed shared asset updates referencing HTML once. Cloudflare must include query strings in its cache key.
+- Recover board photographs with recognized raster signatures but incorrect extensions, preserving bytes, original upstream paths and blob verification; reject unknown/LFS files. No classifier migration or hardware analysis cache fingerprint change.
+
 # v0.3.20 — Browser geometry regression fix
 
 - Correct the rendered-site settings assertion: CSS fieldset grid tracks can serialize as repeat()/minmax() expressions, not whitespace-separated columns. Check real child positions, expected row counts and overlap instead. Reuse the same check for dashboard layouts.

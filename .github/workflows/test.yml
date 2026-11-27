@@ -64,4 +64,5 @@ jobs:
           python tests/news_browser_smoke.py
           python tests/table_browser_smoke.py
           python tests/browser_smoke.py
+          python tests/link_icons_browser_smoke.py
           python tests/rendered_smoke.py

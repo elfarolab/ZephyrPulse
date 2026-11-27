@@ -87,6 +87,9 @@ def build_site(project: Path, generator: Generator, site_url: str) -> Path:
         with stage('Run static renderer'):
             generator.render(project, work, site_url)
         new = work/'site'
+        with stage('Version browser assets'):
+            from .asset_versions import version_assets
+            version_assets(new)
         with stage('Validate generated files and assets'):
             validate_site(work/'docs',new)
         with stage('Compare rendered site contents'):

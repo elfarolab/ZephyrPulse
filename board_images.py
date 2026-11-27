@@ -120,31 +120,43 @@ def publish(repo, head, boards, docs, enabled=True):
             if kind == 'blob' and mode in ('100644', '100755') and PurePosixPath(path).suffix.lower() in FORMATS:
                 files[path] = (oid, int(size))
         selected = select(boards, files)
+    # Resolve by blob identity, not by the filename suffix. Existing valid files
+    # retain their names; mismatches are published with the detected raster suffix.
     desired = defaultdict(list)
     for key, (path, oid, size) in selected.items():
-        name = oid + PurePosixPath(path).suffix.lower()
-        desired[name].append((key, path, oid, size))
-    valid = set(); missing = defaultdict(list)
-    for name, group in desired.items():
-        oid = group[0][2]; target = directory/name
-        if target.is_file() and target.stat().st_size == group[0][3]:
-            data = target.read_bytes()
-            if git_digest(data, oid) == oid and valid_raster(data, target.suffix[1:]):
-                valid.add(name); continue
-        missing[oid].append(name)
-    changed = 0
-    for oid, data in read_blobs(repo, sorted(missing)):
-        for name in missing[oid]:
-            target = directory/name
-            if not valid_raster(data, target.suffix[1:]):
-                logging.warning('Skipping board image: %s (expected %s; detected %s)', desired[name][0][1], target.suffix[1:], detected_format(data)); continue
-            if not target.is_file() or target.read_bytes() != data:
-                target.write_bytes(data); changed += 1
-            valid.add(name)
-    result = {}
-    for name in sorted(valid):
-        for key, path, oid, size in desired[name]:
-            result[key] = {'url':'data/board-images/'+name, 'path':path}
+        desired[oid].append((key, path, size))
+    cached = defaultdict(list)
+    for file in sorted(directory.iterdir()):
+        if file.is_file() and not file.is_symlink() and GENERATED.fullmatch(file.name):
+            cached[file.stem].append(file)
+    resolved = {}; changed = 0; recovered = 0
+    for oid, group in desired.items():
+        expected = oid + PurePosixPath(group[0][1]).suffix.lower()
+        for file in sorted(cached[oid], key=lambda f: (f.name != expected, f.name)):
+            if file.stat().st_size != group[0][2]: continue
+            data = file.read_bytes()
+            if git_digest(data, oid) == oid and valid_raster(data, file.suffix[1:]):
+                resolved[oid] = file.name; break
+    for oid, data in read_blobs(repo, sorted(set(desired)-set(resolved))):
+        path = desired[oid][0][1]
+        suffix = PurePosixPath(path).suffix.lower()[1:]
+        detected = detected_format(data)
+        if detected not in ('webp', 'png', 'jpeg', 'gif'):
+            logging.warning('Skipping board image: %s (expected %s; detected %s)', path, suffix, detected); continue
+        if not valid_raster(data, suffix):
+            logging.info('Recovered board image: %s (expected %s; detected %s)', path, suffix, detected)
+            suffix = 'jpg' if detected == 'jpeg' else detected
+            recovered += 1
+        name = oid + '.' + suffix
+        target = directory/name
+        if target.is_symlink(): raise RuntimeError(f'Unsafe image output: {target}')
+        if not target.is_file() or target.read_bytes() != data:
+            target.write_bytes(data); changed += 1
+        resolved[oid] = name
+    valid = set(resolved.values())
+    result = {key: {'url':'data/board-images/'+resolved[oid], 'path':path}
+              for oid, group in desired.items() if oid in resolved for key, path, size in group}
+    if recovered: logging.info('Board image format recovery: %d unique images', recovered)
     # Only remove files we own. Keep the prior published generation for cached HTML.
     previous = set()
     catalog = docs/'intelligence.json'
