@@ -1,3 +1,8 @@
+## It is still a Work In Progress - 27th Nov 2026
+Push requests and Issues after more testing and fixes.
+
+---
+
 ![Screenshot description](images/screenshot.png)
 
 # Zephyr Pulse
