@@ -50,7 +50,7 @@ class PulseTest(unittest.TestCase):
         home=(self.root/'docs/index.md').read_text()
         self.assertIn('CAN', home)
         self.assertIn('  - navigation', home)
-        self.assertEqual(home.count('class="pulse-stat-label"'),8)
+        self.assertEqual(home.count('class="pulse-stat-label"'),9)
         self.assertIn('pulse-i-capability',home)
         self.assertIn('pulse-i-compare',home)
         self.assertIn('href="board_feature.html"',home)

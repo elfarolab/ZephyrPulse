@@ -21,7 +21,7 @@ def main():
             page.goto(base+'hardware-search.html');page.get_by_label('Find hardware or news (comma = OR)').fill('*kit*');page.get_by_label('Result type').select_option('target');page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();page.reload();page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();assert page.get_by_label('Find hardware or news (comma = OR)').input_value()=='*kit*'
             page.locator('.pulse-search-result h3 a').first.click();page.get_by_text('Target capability matrix',exact=True).wait_for();assert not errors,errors
             page.goto(base+'index.html');page.set_viewport_size({'width':1440,'height':900});page.locator('.md-tabs').wait_for(state='visible');page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();page.evaluate('window.scrollTo(0,0)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();assert not page.locator('.md-sidebar--secondary').count() or not page.locator('.md-sidebar--secondary').is_visible();page.locator('#pulse-home-watch').get_by_text('Your browser watchlist').wait_for();assert page.get_by_role('link',name='Hardware search',exact=True).count()>0
-            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==8
+            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==9
             assert page.locator('.pulse-tools a .pulse-icon').count()==4
             assert page.locator('.md-tabs__link .pulse-icon').count()==6
             assert not page.locator('.md-sidebar--primary').count() or not page.locator('.md-sidebar--primary').is_visible()

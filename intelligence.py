@@ -178,26 +178,37 @@ def activity_vendor(path, boards_by_folder, known):
 
 def update_history(db,repo,head,now,boards,days=90,batch=250):
     from pulse import classify, first_parent_window
+    from classification import VERSION as classifier_version, change_type
     db.executescript(SCHEMA)
+    if 'classifier_version' not in {r[1] for r in db.execute('PRAGMA table_info(history_seen)')}:
+        db.execute("ALTER TABLE history_seen ADD COLUMN classifier_version TEXT NOT NULL DEFAULT ''")
+        db.commit()
     cutoff=(now-dt.timedelta(days=days)).isoformat(timespec='seconds')
     # First-parent reachability also removes records from rewritten main history.
     history = {sha: (date, hashlib.sha256(author.casefold().encode()).hexdigest())
                for sha, date, author in first_parent_window(repo, head, cutoff)}
     idx=folder_index(boards); bv={f:[boards[k]['vendor'] for k in ids] for f,ids in idx.items()}; known={b['vendor'] for b in boards.values()} | set(VENDOR_ALIASES.values())
-    seen={r[0] for r in db.execute('SELECT sha FROM history_seen')}
+    versions={r[0]:r[1] for r in db.execute('SELECT sha,classifier_version FROM history_seen')}
+    seen=set(versions)
+    stale={s for s in seen & history.keys() if versions[s]!=classifier_version}
     recent={r[0] for r in db.execute('SELECT sha FROM commits')}
-    pending=[s for s in history if s not in seen]
+    pending=[s for s in history if s not in seen or s in stale]
     # Always summarize recent news; backfill older commits in bounded batches (0 = all).
     older=[s for s in pending if s not in recent]; selected=[s for s in pending if s in recent]+(older[:batch] if batch else older)
     logging.info('History: %d already processed, %d pending; %d selected this run',len(seen & history.keys()),len(pending),len(selected))
+    logging.info('Historical classification: %d previously processed commits need refresh; %d selected for refresh this run',len(stale),len(stale & set(selected)))
     progress=Progress('Historical commits',len(selected))
     with db:
         db.executemany('DELETE FROM history_seen WHERE sha=?',[(s,) for s in seen-history.keys()])
         for i,sha in enumerate(selected,1):
             progress.item(i,sha[:12])
             date,author=history[sha]; parent=repo.parent(sha); changes=list(repo.changes(sha,parent))
-            db.execute('INSERT INTO history_seen VALUES(?,?)',(sha,date))
-            events=[dict(r) for r in db.execute('SELECT * FROM events WHERE sha=?',(sha,))] if sha in recent else [dict(zip(('kind','subject','detail','confidence','path'),e)) for e in classify(repo,sha,parent,changes)]
+            subject=repo.git('show','-s','--format=%s',sha).strip()
+            db.execute('INSERT INTO history_seen(sha,committed,classifier_version) VALUES(?,?,?) ON CONFLICT(sha) DO UPDATE SET committed=excluded.committed,classifier_version=excluded.classifier_version',(sha,date,classifier_version))
+            if sha in stale:
+                db.execute('DELETE FROM milestones WHERE sha=?',(sha,))
+                db.execute('DELETE FROM vendor_activity WHERE sha=?',(sha,))
+            events=[dict(r) for r in db.execute('SELECT * FROM events WHERE sha=?',(sha,))] if sha in recent else [dict(zip(('kind','subject','detail','confidence','path'),e)) for e in classify(repo,sha,parent,changes,subject)]
             signals=set(); touched=set()
             for status,old,path in changes:
                 path=path or old
@@ -205,7 +216,6 @@ def update_history(db,repo,head,now,boards,days=90,batch=250):
                     touched.add(vendor); signals.add((vendor,'hardware_changes'))
                     if path.startswith('drivers/'): signals.add((vendor,'driver_changes'))
                     if path.startswith(('tests/','samples/')) or '/tests/' in path: signals.add((vendor,'test_source_changes'))
-            subject=repo.git('show','-s','--format=%s',sha).strip()
             if re.search(r'\b(fix|fixes|fixed|bugfix|regression)\b',subject,re.I):
                 signals.update((v,'fix_signals') for v in touched)
             if any((p or o or '').startswith(('tests/','samples/')) for _,o,p in changes):
@@ -218,13 +228,16 @@ def update_history(db,repo,head,now,boards,days=90,batch=250):
                         label=e['detail'].split(' Verify ')[0].split(' (source only)')[0][:240]
                         db.execute('INSERT OR IGNORE INTO milestones VALUES(?,?,?,?,?,?)',(sha,key,e['kind'],label,('candidate' if len(ids)>1 else e['confidence']),e['path']))
                         signals.add((boards[key]['vendor'],e['kind']))
-                if e['kind'] in ('driver','sensor','soc'):
+                typ=change_type(e['detail'])
+                if (e['kind'] in ('driver','sensor') and typ in ('Driver compatible','New implementation file','Sensor binding')) or (e['kind']=='soc' and typ in ('New SoC','SoC metadata')):
                     for v in activity_vendor(e['path'],bv,known): signals.add((v,e['kind']))
             db.executemany('INSERT OR IGNORE INTO vendor_activity VALUES(?,?,?,?)',[(sha,v,s,author) for v,s in signals])
             progress.done(i)
         db.execute('DELETE FROM release_cache WHERE sha NOT IN (SELECT sha FROM history_seen)')
     done=len((seen & history.keys()) | set(selected)); logging.info('History coverage: %d/%d commits',done,len(history))
-    return {'days':days,'processed':done,'total':len(history),'cutoff':cutoff,'complete':done==len(history)}
+    remaining=len(stale-set(selected))
+    logging.info('Historical classification refresh: %d remaining',remaining)
+    return {'days':days,'processed':done,'total':len(history),'cutoff':cutoff,'complete':done==len(history),'classification_pending':remaining}
 
 
 def release_tags(repo, lts_lines):
@@ -330,6 +343,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     page_counts=Counter()
     stamp=f'Updated **{now:%Y-%m-%d %H:%M UTC}** · main snapshot `{head[:12]}`.\n\n'
     cov=f"History: **{coverage['processed']} / {coverage['total']}** first-parent commits processed in the last {coverage['days']} days. {'Complete.' if coverage['complete'] else 'Backfill in progress; counts are incomplete.'}"
+    if coverage.get('classification_pending'): cov += f" Classifier refresh pending for {coverage['classification_pending']} previously processed commits; historical signals may be mixed until complete."
     idx=folder_index(boards)
     rows=[dict(r) for r in db.execute('SELECT e.*,c.committed,c.subject AS commit_subject FROM events e JOIN commits c USING(sha) ORDER BY c.committed DESC,sha,kind,subject')]
     for r in rows:

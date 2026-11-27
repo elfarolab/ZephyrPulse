@@ -262,3 +262,7 @@ tr[hidden] {display:none!important}
 th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 #pulse-vendor-filter {display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.5rem 0;}
 #pulse-vendor-filter p {margin:0;}
+
+/* Routine board changes are distinct from new support. */
+.pulse-cat-board_change {--pulse-category:#476a8d;}
+[data-md-color-scheme="slate"] .pulse-cat-board_change {--pulse-category:#91b8e3;}

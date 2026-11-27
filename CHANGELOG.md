@@ -1,3 +1,11 @@
+# v0.3.16 — Source-aware news classification
+
+- Preserve semantic hardware-support detection, then classify remaining changed files by subsystem path. Recognized commit prefixes are a candidate-only fallback; unmatched commits stay in Other changes with a representative source link when available.
+- Recognize Devicetree API headers, existing bindings, source and tooling, driver/sensor and SoC maintenance, documentation updates, and separate Board maintenance from new support. Narrow Doxygen-only API documentation detection does not infer a hardware capability.
+- Add change-type metadata, filter and sort choices to compact news tables, including dynamic and static rendering. Deleted-source links point to the parent revision. Hardware search indexes the new metadata.
+- Automatically reclassify the rolling news window once per classifier revision using an atomic SQLite transaction. Refresh existing historical summaries in bounded batches, preserving previously processed history until each commit is replaced; keep introduction metrics separate from generic maintenance.
+- Existing Git repository, configuration and private publisher remain unchanged. The first run may take longer and invalidate hardware analysis and renderer caches. Historical classification refresh progress is reported separately from history coverage.
+
 # v0.3.15 — Compact expandable news tables
 
 - Preserve the first header cell in the table layout; hide only its accessible label. Reserve a narrow 2rem desktop column and a 1.7rem mobile grid track for expand controls.

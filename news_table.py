@@ -25,20 +25,21 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
         linked = [boards[k] for k in ids if k in boards]
         vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)
         url = f'{UPSTREAM}/commit/{quote(sha,safe="")}'
-        path = r.get('path') or ''; source = f'{UPSTREAM}/blob/{quote(sha,safe="")}/{quote(path,safe="/")}'
-        out.append(f'<tr class="pulse-news-row pulse-cat-{kind}" data-kind="{escape(kind,quote=True)}" data-time="{escape(r["committed"],quote=True)}" data-vendor="{escape(vendors,quote=True)}" data-confidence="{escape(confidence,quote=True)}">')
+        path = r.get('path') or ''; revision = r.get('source_revision') or sha; source = f'{UPSTREAM}/blob/{quote(revision,safe="")}/{quote(path,safe="/")}'
+        typ = r.get('change_type') or 'Unknown'
+        out.append(f'<tr class="pulse-news-row pulse-cat-{kind}" data-change-type="{escape(typ,quote=True)}" data-kind="{escape(kind,quote=True)}" data-time="{escape(r["committed"],quote=True)}" data-vendor="{escape(vendors,quote=True)}" data-confidence="{escape(confidence,quote=True)}">')
         out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {escape(subject,quote=True)}"><span aria-hidden="true">▾</span></button></td>')
         vals = [escape(stamp), f'<a class="pulse-category-link" href="{kind}.html">{icon(CATEGORY_ICONS[kind])} {escape(CATEGORIES[kind])}</a>', f'<a class="pulse-subject-filter" href="{kind}.html?subject={quote(subject,safe="")}" data-subject="{escape(subject,quote=True)}">{escape(subject)}</a>', escape(headline), escape(confidence), escape(release), escape(sha[:10])]
         for i, val in enumerate(vals):
             out.append(f'<td class="pulse-news-col-{i}" title="{escape([stamp,CATEGORIES[kind],subject,headline,confidence,release,sha][i],quote=True)}">{val}</td>')
         out.append('</tr>')
         links = ' · '.join(f'<a href="boards/{quote(b["slug"],safe="")}.html">{escape(b["name"])}</a>' for b in linked)
-        out.append(f'<tr class="pulse-news-detail"><td colspan="8"><article class="pulse-news-detail-panel"><strong>{escape(subject)}</strong><p>{escape(headline)}</p><p>{escape(r["detail"])}</p><p>{escape(stamp)} UTC · {escape(CATEGORIES[kind])} · {escape(confidence)} · {escape(release)} (exact commit inclusion)</p>')
+        out.append(f'<tr class="pulse-news-detail"><td colspan="8"><article class="pulse-news-detail-panel"><strong>{escape(subject)}</strong><p>{escape(headline)}</p><p>{escape(r["detail"])}</p><p>Change type: {escape(typ)}</p><p>{escape(stamp)} UTC · {escape(CATEGORIES[kind])} · {escape(confidence)} · {escape(release)} (exact commit inclusion)</p>')
         peers = [k for k in CATEGORIES if k != kind and k in related.get(subject.casefold(), set())]
         if peers:
             out.append('<p>Same subject in other categories: '+ ' · '.join(f'<a href="{k}.html?subject={quote(subject,safe="")}">{escape(CATEGORIES[k])}</a>' for k in peers) + '</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
-        if path: out.append(f'<p>Source: <code>{escape(path)}</code></p>')
+        if path: out.append(f'<p>Source: <code>{escape(path)}</code>{" (before removal)" if revision != sha else ""}</p>')
         out.append(f'<p class="pulse-news-links"><a href="{url}">{icon("commit")} Commit {escape(sha)}</a>'+ (f' · <a href="{source}">{icon("source")} Source file</a>' if path else '') + (' · Board profiles: '+links if links else '')+f' · <a href="hardware-search.html?subject={quote(subject,safe="")}">Related hardware / news</a></p></article></td></tr>')
     out.append('</tbody></table></div></div>')
     # One raw HTML block (no blank lines) for Markdown engines.

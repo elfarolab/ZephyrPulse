@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parent
 UPSTREAM = 'https://github.com/zephyrproject-rtos/zephyr'
 CATEGORIES = {
     'board_feature': 'Board capability changes', 'board_candidate': 'Possible board support',
-    'board': 'New boards', 'sensor': 'Sensors', 'driver': 'Drivers', 'soc': 'SoCs',
+    'board': 'New boards', 'board_change': 'Board maintenance', 'sensor': 'Sensors', 'driver': 'Drivers', 'soc': 'SoCs',
     'dts': 'Devicetree', 'docs': 'Documentation', 'other': 'Other changes',
 }
 UTC = dt.timezone.utc
@@ -170,9 +170,17 @@ def connect(path):
     db = sqlite3.connect(path); db.row_factory = sqlite3.Row
     db.executescript(SCHEMA);
     from intelligence import SCHEMA as INTELLIGENCE_SCHEMA
-    db.executescript(INTELLIGENCE_SCHEMA); return db
+    db.executescript(INTELLIGENCE_SCHEMA)
+    # Additive migrations preserve the user's existing database and Git history.
+    columns = {r[1] for r in db.execute('PRAGMA table_info(events)')}
+    for name in ('change_type','source_revision'):
+        if name not in columns: db.execute(f"ALTER TABLE events ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+    db.commit()
+    return db
 
-def classify(repo, sha, parent, changes):
+def classify(repo, sha, parent, changes, subject=None):
+    from classification import supplement
+    changes = list(changes)
     events = set(); new_tokens = {}; new_compat = {}; shared_changes = []
     def board_users(path):
         # Bounded basename-based reverse include walk; conditional includes and paths are unresolved.
@@ -275,7 +283,8 @@ def classify(repo, sha, parent, changes):
                 for affected,user in users.items():
                     add('board_candidate',affected,f'New driver {compat}; possible shared DTS include chain from {path}. Driver: {new_tokens[token]}. Verify build.',user,'candidate')
                 if not users: add('board_candidate',str(PurePosixPath(path).parent),f'New driver {compat} matches shared DTS source; affected boards not resolved.',path,'candidate')
-    return sorted(events)
+    if subject is None: subject = repo.git('show','-s','--format=%s',sha).strip()
+    return supplement(repo,sha,parent,changes,subject,events)
 
 
 def first_parent_window(repo, head, cutoff):
@@ -302,19 +311,22 @@ def collect(db, repo, head, now, hours):
     cutoff = (now-dt.timedelta(hours=hours)).isoformat(timespec='seconds')
     prior = db.execute("SELECT value FROM state WHERE key='head'").fetchone()
     # On a rewritten branch, rebuild the window rather than silently retain orphan commits.
+    from classification import VERSION as classifier_version, change_type
+    version = db.execute("SELECT value FROM state WHERE key='news_classifier_version'").fetchone()
+    reclassify = not version or version[0] != classifier_version
     rebuild = False
     if prior and prior[0] != head:
         # --is-ancestor alone accepts a side parent; check the first-parent boundary with range.
         history = repo.git('rev-list','--first-parent',head).splitlines()
         rebuild = prior[0] not in history
-    if not prior or rebuild:
+    if not prior or rebuild or reclassify:
         shas = [sha for sha, _, _ in reversed(first_parent_window(repo, head, cutoff))]
     else:
         shas = repo.git('rev-list','--first-parent','--reverse',f'{prior[0]}..{head}').splitlines()
-    logging.info('Recent news: %s; cutoff %s', 'history rewrite' if rebuild else ('incremental update' if prior else 'initial collection'), cutoff)
+    logging.info('Recent news: %s; cutoff %s', 'classifier migration' if reclassify and prior else ('history rewrite' if rebuild else ('incremental update' if prior else 'initial collection')), cutoff)
     progress=Progress('Recent commits', len(shas))
     with db:
-        if rebuild: db.execute('DELETE FROM commits')
+        if rebuild or reclassify: db.execute('DELETE FROM commits')
         for i, sha in enumerate(shas, 1):
             progress.item(i, sha[:12])
             raw = repo.git('show','-s','--format=%cI%x00%s',sha).rstrip('\n'); date, subject = raw.split('\0',1)
@@ -322,12 +334,13 @@ def collect(db, repo, head, now, hours):
             if committed < cutoff or db.execute('SELECT 1 FROM commits WHERE sha=?',(sha,)).fetchone():
                 progress.done(i); continue
             parent = repo.parent(sha); changes = list(repo.changes(sha,parent))
-            events = classify(repo,sha,parent,changes)
+            events = classify(repo,sha,parent,changes,subject)
             db.execute('INSERT INTO commits VALUES(?,?,?)',(sha,committed,subject))
-            if not events: events = [('other',subject,'No priority rule matched. Inspect commit for details.','unclassified','')]
-            db.executemany('INSERT OR IGNORE INTO events(sha,kind,subject,detail,confidence,path) VALUES(?,?,?,?,?,?)', [(sha,*e) for e in events])
+            deleted = {old for status,old,new in changes if status=='D'}
+            db.executemany('INSERT OR IGNORE INTO events(sha,kind,subject,detail,confidence,path,change_type,source_revision) VALUES(?,?,?,?,?,?,?,?)', [(sha,*e,change_type(e[2]),(parent if e[4] in deleted else sha) if e[4] else '') for e in events])
             progress.done(i)
         db.execute('DELETE FROM commits WHERE committed < ?', (cutoff,))
+        db.execute("INSERT OR REPLACE INTO state VALUES('news_classifier_version',?)",(classifier_version,))
         db.execute("INSERT INTO state VALUES('head',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(head,))
     logging.info('SQLite committed: %d retained commits, %d events; tracking %s',db.execute('SELECT count(*) FROM commits').fetchone()[0],db.execute('SELECT count(*) FROM events').fetchone()[0],head[:12])
 
@@ -336,7 +349,7 @@ def md(s):
     # HTML escape plus escape Markdown punctuation; do not allow upstream text to inject links/HTML.
     return re.sub(r'([\\`*_\[\]#|!~])',r'\\\1',escape(' '.join(str(s).split()),quote=False))
 
-CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'docs':'docs', 'other':'news'}
+CATEGORY_ICONS = {'board_feature':'capability', 'board_candidate':'candidate', 'board':'board', 'board_change':'board', 'sensor':'sensor', 'driver':'driver', 'soc':'cpu', 'dts':'dts', 'docs':'docs', 'other':'news'}
 
 def icon(name):
     # Names are application constants, not upstream text. CSS masks are decorative.
