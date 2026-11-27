@@ -1,3 +1,9 @@
+# v0.3.36 — Compact board profiles
+
+- Remove verbose introductions from board activity, capability matrices, retained timelines and raw Devicetree evidence. Omit the recent-commits section when no associated commits are retained.
+- Collapse raw board-folder Devicetree evidence by default using the existing board-target disclosure style, with escaped HTML cells, sortable headers and revision-pinned source links.
+- Preserve v0.3.35 smart publishing, scoped caches and all technical evidence. No database or classifier migration or new dependency.
+
 # v0.3.35 — Smart incremental publishing
 
 - Separate collection status from rendered Markdown and data snapshots; unchanged news and activity datasets retain their bytes. The browser reads the actual collection time from `data/status.json`.

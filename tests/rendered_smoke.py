@@ -42,8 +42,10 @@ def main():
             expect(page.locator('.pulse-board-overview-links a').first).to_have_attribute('target','_blank')
             home=page.get_by_role('link',name='Zephyr Pulse home');expect(home).to_have_attribute('href',base+'index.html')
             expect(page.get_by_role('heading',name='Recent board commits',exact=True,level=2)).to_be_visible()
-            expect(page.locator('.pulse-board-target')).to_have_count(1)
-            target=page.locator('.pulse-board-target');assert target.get_attribute('open') is None
+            expect(page.locator('.pulse-board-target:not(.pulse-board-raw)')).to_have_count(1)
+            raw=page.locator('.pulse-board-raw');expect(raw).to_have_count(1);expect(raw.locator('table')).not_to_be_visible()
+            raw.locator('summary').click();expect(raw.locator('table')).to_be_visible();raw.locator('summary').click();expect(raw.locator('table')).not_to_be_visible()
+            target=page.locator('.pulse-board-target:not(.pulse-board-raw)');assert target.get_attribute('open') is None
             target.locator(':scope > summary').click();expect(target.locator('table').first).to_be_visible()
             target.locator(':scope > summary').click();assert target.get_attribute('open') is None
             activity=page.locator('.pulse-grouped-news');expect(activity.locator('.pulse-news-row')).to_have_count(1)

@@ -35,8 +35,26 @@ class BoardActivityTests(TestCase):
         self.assertEqual(text.count('<details class="pulse-board-target">'),2)
         self.assertIn('<summary><span>kit/chip/alt</span></summary>',text)
         self.assertLess(text.index('## Recent board commits'),text.index('## Target capability matrix'))
+        for phrase in ('direct board-folder changes and classified board associations', 'No associated commits in this window', 'Exact-target YAML declarations and revision-pinned DTS source hints', 'Retained board milestones (last', 'These file-local declarations may apply'):
+            self.assertNotIn(phrase,text)
+        raw=text.split('## Raw board-folder devicetree evidence',1)[1]
+        self.assertIn('<details class="pulse-board-target pulse-board-raw">',raw)
+        self.assertIn('<th>Explicit status</th>',raw)
+        self.assertIn('/blob/',raw);self.assertIn('kit.dts',raw)
+        self.assertIn('&amp;can0',raw);self.assertNotIn('[source](',raw)
         self.put('doc/another.rst','unrelated');new=self.commit('another unrelated change')
         self.assertEqual(build(new).read_text(),text)
+    def test_no_recent_activity_omits_empty_section(self):
+        now=dt.datetime.now(UTC)+dt.timedelta(days=4);docs=self.root/'docs'
+        collect(self.db,self.g,self.base,now,72);boards=inventory(self.g,self.base,self.db)
+        coverage=update_history(self.db,self.g,self.base,now,boards,90,0)
+        files=recent_files(self.db,self.g)
+        render(self.db,docs,now,72,'https://example.invalid/',boards=boards,commit_files=files)
+        render_extra(self.db,docs,now,self.base,boards,coverage,[],{'status':'disabled','items':[]},{},{},'https://example.invalid/',commit_files=files)
+        expired=next((docs/'boards').glob('*.md')).read_text()
+        self.assertNotIn('## Recent board commits',expired)
+        self.assertNotIn('No associated commits in this window',expired)
+        self.assertIn('Choose a target from this board in comparator',expired)
 
     def test_direct_manifest_only_rename_shared_folder_and_boundary(self):
         boards={'a':{'folder':'boards/v/shared','name':'a'},'b':{'folder':'boards/v/shared','name':'b'},'c':{'folder':'boards/v/shared2','name':'c'}}

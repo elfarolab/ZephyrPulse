@@ -402,12 +402,11 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         revision=b.get('evidence_revision',head)
         board_stamp=f'Hardware evidence snapshot: [`{revision[:12]}`]({UPSTREAM}/commit/{revision}). See [Board explorer](../boards.md) for latest collection time.'
         activity = board_activity.get(key, [])
-        lines=[f"# {md(b['full_name'])}",'',board_stamp,'',overview(b,image,revision,UPSTREAM),'',
-               '## Recent board commits','',
-               f'Rolling {hours} hours · direct board-folder changes and classified board associations. File lists cover the complete commit when available, including changes outside this board. Shared source files may affect multiple boards; no indirect driver/SoC impact is inferred.','',
-               render_grouped_news(activity,'all',statuses,boards,idx,commit_files,board_context=True) if activity else '_No associated commits in this window. See the retained support timeline below for older evidence._','',
-               f'<a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','',
-               '## Target capability matrix','', 'Exact-target YAML declarations and revision-pinned DTS source hints are separate evidence. Missing evidence is unknown, not unsupported. DTS hints do not resolve conditional includes, ancestor status, overlays or Kconfig. No builds or hardware tests performed.','']
+        lines=[f"# {md(b['full_name'])}",'',board_stamp,'',overview(b,image,revision,UPSTREAM),'']
+        if activity:
+            lines += ['## Recent board commits','',render_grouped_news(activity,'all',statuses,boards,idx,commit_files,board_context=True),'']
+        lines += [f'<a href="../compare.html?board={quote(key,safe="")}">Choose a target from this board in comparator</a>','',
+                  '## Target capability matrix','']
         def html_source(path):
             return f'<a href="{UPSTREAM}/blob/{revision}/{quote(path,safe="/")}">source</a>'
         for target in sorted(set(b['targets'])|set(b['metadata'])):
@@ -438,10 +437,14 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
             lines += ['</div></details>','']
         if not b['targets'] and not b['metadata']: lines += ['_No target metadata found._','']
         from news_table import render_board_timeline
-        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). One row per commit; expand evidence for individual signals. These are retained milestones, not complete commit file lists.",'',render_board_timeline(timeline,statuses,release_text)]
-        lines += ['','## Raw board-folder devicetree evidence','','These file-local declarations may apply to different variants or boards sharing the folder. Includes, overlays and Kconfig are not resolved.','','| File | Node | Explicit status | Compatible |','|---|---|---|---|']
-        for r in b['raw']: lines.append(f"| {source_link(revision,r['path'])} ({md(PurePosixPath(r['path']).name)}) | {md(r['node'])} | {md(r['status'] or 'not explicit')} | {md(r['compatible'] or '—')} |")
-        if not b['raw']: lines += ['| — | — | No local evidence | — |']
+        lines += ['## Recent support timeline','',render_board_timeline(timeline,statuses,release_text)]
+        lines += ['','## Raw board-folder devicetree evidence','',
+                  '<details class="pulse-board-target pulse-board-raw"><summary title="File-local evidence; includes, overlays and Kconfig are not resolved."><span>Inspect raw board-folder devicetree evidence</span></summary>',
+                  '<div class="pulse-board-target-body"><div class="pulse-matrix"><table><thead><tr><th>File</th><th>Node</th><th>Explicit status</th><th>Compatible</th></tr></thead><tbody>']
+        for r in b['raw']:
+            lines.append(f"<tr><td>{html_source(r['path'])} ({escape(PurePosixPath(r['path']).name)})</td><td>{escape(r['node'])}</td><td>{escape(r['status'] or 'not explicit')}</td><td>{escape(r['compatible'] or '—')}</td></tr>")
+        if not b['raw']: lines += ['<tr><td>—</td><td>—</td><td>No local evidence</td><td>—</td></tr>']
+        lines += ['</tbody></table></div></div></details>']
         save('boards/'+b['slug']+'.md',lines)
         progress.done(i)
     logging.info('Board Markdown: %d changed/new, %d unchanged',page_counts['changed'],page_counts['unchanged'])

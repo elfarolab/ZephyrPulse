@@ -12,7 +12,7 @@ def main():
     try:
         case.test_board_profile_activity_and_stability()
         page_text=next((case.root/'docs/boards').glob('*.md')).read_text()
-        markup=page_text[page_text.index('<section class="pulse-board-overview"'):page_text.index('## Recent support timeline')]
+        markup=page_text[page_text.index('<section class="pulse-board-overview"'):page_text.index('## Recent support timeline')]+page_text[page_text.index('<details class="pulse-board-target pulse-board-raw">'):] 
         with sync_playwright() as pw:
             args={'headless':True,'args':['--no-sandbox']}
             if shutil.which('chromium'):args['executable_path']=shutil.which('chromium')
@@ -33,10 +33,16 @@ def main():
             expect(page.locator('#repo')).to_have_attribute('target','_blank');expect(page.locator('#repo')).to_have_attribute('rel','noopener noreferrer')
             expect(page.locator('.pulse-board-overview-links a').first).to_have_attribute('target','_blank')
             assert not page.locator('.pulse-board-overview-meta dd a').first.get_attribute('target')
-            targets=page.locator('.pulse-board-target');expect(targets).to_have_count(2);assert page.locator('.pulse-board-target[open]').count()==0
+            targets=page.locator('.pulse-board-target:not(.pulse-board-raw)');expect(targets).to_have_count(2);assert page.locator('.pulse-board-target[open]').count()==0
             targets.first.locator(':scope > summary').press('Enter');expect(targets.first.locator('table').first).to_be_visible();assert page.locator('.pulse-board-target[open]').count()==1
             expect(targets.first.locator('table').first.get_by_role('button',name='Peripheral / feature')).to_be_visible()
             targets.first.locator(':scope > summary').click();assert page.locator('.pulse-board-target[open]').count()==0
+            raw=page.locator('.pulse-board-raw');expect(raw).to_have_count(1)
+            expect(raw.locator('table')).not_to_be_visible()
+            raw.locator('summary').press('Enter');expect(raw.locator('table')).to_be_visible()
+            expect(raw.get_by_role('button',name='Explicit status',exact=True)).to_be_visible()
+            expect(raw.get_by_role('link',name='source',exact=True).first).to_have_attribute('target','_blank')
+            raw.locator('summary').click();expect(raw.locator('table')).not_to_be_visible()
             rows=page.locator('.pulse-news-row:visible');expect(rows).to_have_count(2);expect(page.locator('.pulse-news-detail:visible')).to_have_count(0)
             page.get_by_role('button',name='Commit description',exact=True).click();rows.first.locator('.pulse-news-col-6 button').click()
             detail=page.locator('.pulse-news-detail:visible');expect(detail).to_have_count(1);expect(detail.get_by_role('link',name='doc/mixed.rst')).to_have_attribute('target','_blank')
