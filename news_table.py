@@ -41,7 +41,7 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None,
     layout = ' pulse-compact-news' if category else ''
     fixed = f' data-fixed-category="{escape(category,quote=True)}"' if category else ''
     out = [f'<div class="pulse-news-table{layout}" data-pulse-news="100"{fixed}>',
-           f'<div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
+           f'<div class="pulse-news-scroll" tabindex="0" role="region" aria-label="News table (scroll horizontally)"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
            '<th scope="col" class="pulse-news-expand"><span class="pulse-sr-only">Details</span></th>']
     out.extend(f'<th scope="col" data-news-column="{i}">{escape(c)}</th>' for i,c in columns)
     out.append('</tr></thead><tbody>')
@@ -138,7 +138,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
     evidence_label = 'board evidence records' if board_context else 'classified events'
     fixed = '' if mixed else category
     out = [f'<div class="pulse-news-table pulse-grouped-news pulse-compact-news" data-pulse-news="100" data-group-unit="{unit}" data-group-category="{category}" data-fixed-category="{fixed}" data-evidence-label="{evidence_label}">',
-           f'<p class="pulse-group-summary">{len(groups)} {unit} · {len(items)} {evidence_label}. File counts are for the complete commit when available; + means partial evidence.</p><div class="pulse-news-scroll"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
+           f'<p class="pulse-group-summary">{len(groups)} {unit} · {len(items)} {evidence_label}. File counts are for the complete commit when available; + means partial evidence.</p><div class="pulse-news-scroll" tabindex="0" role="region" aria-label="News table (scroll horizontally)"><table class="pulse-news-list"><colgroup><col class="pulse-news-expand-col"><col span="{len(columns)}"></colgroup><thead><tr>',
            '<th scope="col" class="pulse-news-expand"><span class="pulse-sr-only">Details</span></th>']
     out.extend(f'<th scope="col" data-news-column="{i}">{escape(h)}</th>' for i,h in columns)
     out.append('</tr></thead><tbody>')
@@ -159,7 +159,8 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         kinds = list(dict.fromkeys(e['kind'] for e in rows))
         category_text = ', '.join(CATEGORIES[k] for k in kinds) if mixed else CATEGORIES[category]
         if board_context and all(e.get('manifest_only') for e in rows): category_text = 'Board maintenance · Direct board-folder change'
-        data = {'kind':r['kind'] if mixed else category,'kinds':json.dumps(kinds),'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(list(dict.fromkeys([*g['subjects'],g['subject']]))),'scope':g['subject'] if category in SCOPED else '','subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows),'evidence-types':json.dumps(list(dict.fromkeys(evidence_type(e) for e in rows))) if category=='board_feature' else '[]'}
+        evidence_types = list(dict.fromkeys(evidence_type(e) for e in rows)) if category=='board_feature' else []
+        data = {'kind':r['kind'] if mixed else category,'kinds':json.dumps(kinds),'time':r['committed'],'change-type':', '.join(g['types']),'change-types':json.dumps(g['types']),'subjects':json.dumps(list(dict.fromkeys([*g['subjects'],g['subject']]))),'scope':g['subject'] if category in SCOPED else '','subsystem':g['subsystem'],'driver':g['driver'],'vendor':vendors,'event-count':len(rows),'evidence-types':json.dumps(evidence_types)}
         attrs = ' '.join(f'data-{k}="{attr(v)}"' for k,v in data.items())
         out.append(f'<tr class="pulse-news-row pulse-cat-{r["kind"] if mixed else category}" {attrs}>')
         out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {attr(headline)}"><span aria-hidden="true">▾</span></button></td>')
@@ -171,9 +172,14 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
             if i==2 and category in {'board','board_candidate','board_change','board_feature'} and (g['subjects']==[v] or category=='board_feature'):
                 key=resolver.resolve(next((e for e in rows if e['subject']==v),r), ids)
                 if key is not None: cell=f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}">{escape(v)}</a>'
-            if i==2 and category=='board_feature':
-                cell+='<span class="pulse-signal-preview">'+escape(' · '.join(dict.fromkeys(evidence_type(e) for e in rows)))+' · '+escape(' / '.join(dict.fromkeys(e["detail"] for e in rows)))+'</span>'
-            sort_value = f' data-sort-value="{file_count}"' if i==4 else f' data-sort-value="{attr(v)}"' if i==2 and category=='board_feature' else ''
+            if i==3 and evidence_types:
+                # One concise badge; the full list and all evidence stay in the detail.
+                primary = next(t for t in ('Possible support','Declared metadata','Explicit source change') if t in evidence_types)
+                key, label = {'Possible support':('possible','Possible support'),'Declared metadata':('declared','Declared'),'Explicit source change':('source','Source-only')}[primary]
+                if len(evidence_types)>1: label += f' +{len(evidence_types)-1}'
+                cell = f'<span class="pulse-evidence-badge pulse-evidence-{key}" title="{attr(" · ".join(evidence_types))}">{escape(label)}</span>'+cell
+            if i==3: cell = '<span class="pulse-commit-summary">'+cell+'</span>'
+            sort_value = f' data-sort-value="{file_count}"' if i==4 else f' data-sort-value="{attr(v)}"' if i==3 or (i==2 and category=='board_feature') else ''
             out.append(f'<td class="pulse-news-col-{i}" title="{attr(v)}"{sort_value}>{cell}</td>')
         out.append('</tr>')
         board_links = ' '.join(action(b['name'],profile_url(b),'board') for b in linked) if not board_context else ''
@@ -184,6 +190,7 @@ def render_grouped_news(items, category, statuses=None, boards=None, idx=None, c
         if driver: out.append(f'<p>Subsystem: {escape(g["subsystem"])} · Driver: {escape(g["driver"])}</p>')
         if not driver and category in SCOPED: out.append(f'<p>Hardware scope: {escape(g["subject"])}</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
+        if evidence_types: out.append(f'<p class="pulse-evidence-summary"><strong>Evidence types:</strong> {escape(" · ".join(evidence_types))}</p>')
         heading = f'Affected files ({file_count}) — complete commit' if manifest is not None else f'Known evidence files ({file_count}) — complete diff unavailable'
         out.append(f'<p><strong>{heading}</strong> · {len(rows)} {evidence_label} in this group</p><ul class="pulse-affected-files">')
         for path,revision,status,old_path,evidence in files+extra:

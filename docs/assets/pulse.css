@@ -361,8 +361,7 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 .pulse-board-timeline details summary {cursor:pointer;color:var(--md-typeset-a-color,#087e83);white-space:nowrap;}
 .pulse-board-timeline details ul {min-width:12rem;white-space:normal;overflow-wrap:anywhere;}
 
-.pulse-signal-preview {display:block;color:var(--md-default-fg-color--light,#64748b);font-weight:400;font-size:.62rem;margin-top:.18rem;line-height:1.35;}
-.pulse-compact-news[data-group-category="board_feature"] .pulse-news-list th[data-news-column="2"]{width:24%;}
+.pulse-compact-news[data-group-category="board_feature"] .pulse-news-list th[data-news-column="2"]{width:22%;}
 
 /* Compact board profile: native, keyboard-accessible target disclosures. */
 .md-header__title .pulse-home-title {color:inherit;text-decoration:none;pointer-events:auto;}
@@ -440,3 +439,59 @@ tr:is(.pulse-fresh-last,.pulse-fresh-recent,.pulse-fresh-today)>td {background-c
 .pulse-i-kernel{--pulse-icon:url("icons/kernel.svg");}
 .pulse-cat-kernel{--pulse-category:#7757b3;}
 [data-md-color-scheme="slate"] .pulse-cat-kernel{--pulse-category:#c4b5fd;}
+
+/* Dense one-line summaries. Full strings remain in the DOM, cell titles and expanded
+   evidence. On narrow screens retain all columns in a local horizontal scroller. */
+.pulse-news-scroll {max-width:100%;}
+.pulse-news-scroll:focus-visible {outline:2px solid var(--md-accent-fg-color,#087e83);outline-offset:2px;}
+.pulse-news-list {min-width:46rem;}
+.pulse-news-table .pulse-news-list .pulse-news-row > td {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;vertical-align:middle;padding-block:.18rem;}
+.pulse-news-list .pulse-news-row > .pulse-news-expand {padding:0;}
+.pulse-news-row .pulse-commit-expand {display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;line-height:1.35;}
+.pulse-commit-summary {display:flex;align-items:center;gap:.35rem;min-width:0;}
+.pulse-commit-summary .pulse-commit-expand {flex:1 1 auto;}
+.pulse-evidence-badge {display:inline-block;flex:none;white-space:nowrap;line-height:1.25;font-size:.56rem;font-weight:600;padding:.07rem .24rem;border-radius:.2rem;color:#245b69;background:#d9eef4;}
+.pulse-evidence-possible {background:#fff0bd;color:#704600;}
+.pulse-evidence-declared {background:#d7f0e2;color:#176044;}
+[data-md-color-scheme="slate"] .pulse-evidence-badge {background:#a9d8e6;color:#153a46;}
+[data-md-color-scheme="slate"] .pulse-evidence-possible {background:#f7d985;color:#4e3600;}
+[data-md-color-scheme="slate"] .pulse-evidence-declared {background:#b4e5cf;color:#174e3c;}
+/* Keep the yellow age label beside the large triangle, not on a second line. */
+.pulse-news-list:has(.pulse-fresh-badge) .pulse-news-expand-col,
+.pulse-news-list:has(.pulse-fresh-badge) :is(th,td).pulse-news-expand {width:3.5rem;min-width:3.5rem;max-width:3.5rem;}
+.pulse-news-expand>.pulse-fresh-badge {display:inline-block;margin:0 .12rem 0 0;vertical-align:middle;}
+.pulse-news-expand:has(>.pulse-fresh-badge)>.pulse-news-toggle {height:1.65rem;vertical-align:middle;}
+/* Inventory, comparator, release and vendor summary tables remain full-text and
+   scrollable rather than hiding links that have no separate detail panel. */
+.md-typeset table:not(.pulse-news-list):not(.pulse-vendor-explorer) > tbody > tr > td,
+.pulse-matrix table > tbody > tr > :is(td,th),
+.pulse-vendor-boards > tbody > tr > td,
+.pulse-vendor-explorer > tbody > .pulse-vendor-group > td {white-space:nowrap;overflow-wrap:normal;padding-block:.25rem;vertical-align:middle;}
+.pulse-vendor-group .pulse-commit-expand {white-space:nowrap;overflow-wrap:normal;}
+.pulse-board-timeline details[open] ul {white-space:normal;overflow-wrap:anywhere;}
+/* Multi-line technical evidence is intentionally allowed inside an open detail. */
+.md-typeset .pulse-evidence table > tbody > tr > td {white-space:normal;overflow-wrap:anywhere;}
+@media (max-width:48em) {
+  .pulse-news-list {display:table;min-width:46rem;width:100%;}
+  .pulse-news-list tbody {display:table-row-group;}
+  .pulse-news-list colgroup {display:table-column-group;}
+  .pulse-news-list thead {position:static;width:auto;height:auto;overflow:visible;clip-path:none;}
+  .pulse-news-list .pulse-news-row {display:table-row;padding:0;}
+  .pulse-news-list .pulse-news-row > td {display:table-cell;padding:.18rem .45rem;border-bottom:1px solid var(--md-default-fg-color--lightest,#cbd5e1);}
+  .pulse-news-list .pulse-news-row > .pulse-news-expand {width:2rem;max-width:2rem;padding:0;}
+  .pulse-news-list:has(.pulse-fresh-badge) .pulse-news-row > .pulse-news-expand {width:3.5rem;max-width:3.5rem;}
+  .pulse-news-list .pulse-news-col-4::before {content:none!important;}
+  .pulse-news-list .pulse-news-detail {display:table-row;}
+  .pulse-news-list .pulse-news-detail > td {display:table-cell;width:auto;}
+  .pulse-news-detail-panel {position:sticky;left:.35rem;max-width:calc(100vw - 3.5rem);box-sizing:border-box;}
+}
+
+/* Comparator source references are optional disclosures, not stacked summary rows. */
+.pulse-compare-table .pulse-compare-evidence {display:inline-block;vertical-align:baseline;white-space:nowrap;}
+.pulse-compare-table .pulse-compare-evidence[open] {display:block;}
+.pulse-compare-evidence > summary {cursor:pointer;color:var(--md-typeset-a-color,#087e83);font-weight:400;}
+.pulse-compare-evidence ul {white-space:normal;overflow-wrap:anywhere;max-width:22rem;margin:.25rem 0;padding-left:1rem;font-weight:400;}
+.md-typeset details.pulse-compare-evidence {margin:0;padding:0;border:0;box-shadow:none;background:none;font:inherit;}
+.md-typeset details.pulse-compare-evidence > summary {margin:0;padding:0;background:none;border:0;list-style:revert;}
+.md-typeset details.pulse-compare-evidence > summary::before,.md-typeset details.pulse-compare-evidence > summary::after {display:none;}
+.pulse-news-table[data-group-category="board_feature"] .pulse-news-list {min-width:52rem;}

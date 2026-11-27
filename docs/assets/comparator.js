@@ -70,7 +70,13 @@
       let features=[...new Set([...required,...standard,...core,...chosen.flatMap(x=>[...(metadata(x,bs)?.features||[]),...(metadata(x,bs)?.source_features||[])])])];
       if(rows.value==='required')features=features.filter(f=>required.includes(f));if(rows.value==='differences')features=features.filter(f=>required.includes(f)||new Set(chosen.map(x=>state(x,f,bs))).size>1);
       const featureRows=[];for(const f of features){const tr=appendRow(b,(required.includes(f)?'Required · ':'')+f,chosen.map(()=>''));featureRows.push(tr);chosen.forEach((x,i)=>{const td=tr.children[i+1];stateCell(td,state(x,f,bs));const ev=metadata(x,bs)?.dts_evidence?.nodes||[];appendEvidence(td,x,f,ev,bs);});}
-      function appendEvidence(td,x,f,ev,bs){for(const e of ev.filter(e=>e.features.includes(f))){const a=node('a',e.compatible);a.href=urlSource(bs==='main'?(x.evidence_revision||data.head):bs,e.compatible_paths[0]);td.append(node('br'),a);if(e.status_paths?.length){const status=node('a','status');status.href=urlSource(bs==='main'?(x.evidence_revision||data.head):bs,e.status_paths.at(-1));td.append(node('span',' · '),status);}}}
+      function appendEvidence(td,x,f,ev,bs){
+        const matches=ev.filter(e=>e.features.includes(f));if(!matches.length)return;
+        let disclosure=td.querySelector('.pulse-compare-evidence');if(!disclosure){disclosure=node('details');disclosure.className='pulse-compare-evidence';disclosure.append(node('summary'),node('ul'));td.append(' ',disclosure);}
+        const list=disclosure.querySelector('ul'),ref=bs==='main'?(x.evidence_revision||data.head):bs;
+        for(const e of matches){const li=node('li'),a=node('a',e.compatible);a.href=urlSource(ref,e.compatible_paths[0]);li.append(a);if(e.status_paths?.length){const status=node('a','status');status.href=urlSource(ref,e.status_paths.at(-1));li.append(' · ',status);}list.append(li);}
+        disclosure.querySelector('summary').textContent=list.children.length+' source'+(list.children.length===1?'':'s');
+      }
       // Keep coverage usable immediately. Only selected boards load full evidence.
       const detailStatus=node('p','Loading source evidence for selected targets…');
       detailStatus.setAttribute('role','status');

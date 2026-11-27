@@ -1,3 +1,10 @@
+# v0.3.32 — Compact single-line tables
+
+- Keep collapsed news rows to one line, including long titles and targets; full values are available in tooltips and expanded evidence. All category, mixed, watchlist, release and board-activity tables share the compact layout. Keep sorting based on full original values, not badges.
+- Replace verbose board-capability previews with one inline evidence badge, prioritizing Possible support when present and showing +N for additional evidence types. Expanded cards retain every signal and list all evidence types. Preserve search and evidence filters.
+- Keep the yellow last badge alongside the expansion triangle. Retain the blue-teal freshness palette. On narrow screens, use local horizontal scrolling rather than multi-line summary cards; no data columns are dropped. Compact other summary tables without truncating non-expandable links. Comparator compatible/status references move into expandable source counts; detailed technical evidence can still wrap after expansion.
+- No database or classifier migration, analysis-cache invalidation or new dependency.
+
 # v0.3.31 — Scoped analysis caches and blue-teal freshness
 
 - Separate inventory/target evidence, release metadata snapshots and recent Git file-manifest fingerprints. Follow producer source and direct local dependencies rather than entire mixed-purpose modules. Shared DTS/parser changes still invalidate the affected hardware caches together; presentation and classification changes no longer invalidate unrelated data. Cache format and indirect dependencies have explicit maintenance rules.

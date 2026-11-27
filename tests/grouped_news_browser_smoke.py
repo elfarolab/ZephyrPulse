@@ -49,7 +49,7 @@ def main():
             page.get_by_role('button',name='Expand page').click();expect(detail).to_have_count(25)
             page.get_by_role('button',name='Collapse page').click();expect(detail).to_have_count(0)
             page.set_viewport_size({'width':390,'height':844});expect(visible.first.locator('.pulse-news-col-6 button')).to_be_visible()
-            assert visible.first.evaluate("el=>getComputedStyle(el).display")=='grid'
+            assert visible.first.evaluate("el=>getComputedStyle(el).display")=='table-row'
             page.set_viewport_size({'width':1440,'height':900})
             assert not errors,errors
         browser.close()

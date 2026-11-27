@@ -75,7 +75,7 @@ def main():
             page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog a').filter(has_text=re.compile(r'^kit/chip$')).locator("xpath=self::a[preceding-sibling::h3[1][starts-with(normalize-space(.), 'Board targets (')]]").wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
             profile=page.locator('.pulse-news-row .pulse-board-profile-link').first;profile.wait_for();profile.click();page.wait_for_url('**/boards/*.html');page.get_by_role('heading',name='Target capability matrix',exact=True,level=2).wait_for();page.go_back();page.locator('.pulse-news-row').first.wait_for()
-            page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'
+            page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='table-row'
             page.set_viewport_size({'width':1440,'height':900});page.goto(base+'driver.html')
             rows=page.locator('.pulse-news-row:visible');expect(rows).to_have_count(1)
             expect(rows.first.locator('.pulse-news-col-3')).to_contain_text('drivers: i2c: omap: add fixture support')

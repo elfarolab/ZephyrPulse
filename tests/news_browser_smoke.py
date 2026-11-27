@@ -41,7 +41,7 @@ def main():
         page.locator('.pulse-news-controls select').first.select_option('dts');assert page.locator('.pulse-news-row:visible').count()==102
         page.locator('.pulse-news-controls select').first.select_option('');page.get_by_label('Filter news').fill('Item 042');assert page.locator('.pulse-news-row:visible').count()==1
         page.get_by_role('button',name='Expand page').click();assert page.locator('.pulse-news-detail:visible').count()==1;page.get_by_role('button',name='Collapse page').click();assert page.locator('.pulse-news-detail:visible').count()==0
-        page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row:visible').first.evaluate('el=>getComputedStyle(el).display')=='grid';assert not errors,errors
+        page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row:visible').first.evaluate('el=>getComputedStyle(el).display')=='table-row';assert not errors,errors
         check_geometry(page)
         # Exercise the browser-generated table (the default category-page path).
         page.set_viewport_size({'width':1440,'height':900})

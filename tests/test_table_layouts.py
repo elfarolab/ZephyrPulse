@@ -43,7 +43,9 @@ class TableLayoutTests(TestCase):
         html=render_grouped_news(rows,'board_feature')
         self.assertIn('New supported metadata entry: can',html)
         self.assertIn('New supported metadata entry: spi',html)
-        self.assertEqual(html.count('class="pulse-signal-preview"'),1)
+        self.assertEqual(html.count('class="pulse-evidence-badge pulse-evidence-declared"'),1)
+        summary=html.split('class="pulse-news-row ',1)[1].split('</tr>',1)[0]
+        self.assertNotIn("New supported metadata entry",summary)
         self.assertEqual(html.count('class="pulse-news-row '),1)
 
     def test_combined_board_scope_and_evidence(self):

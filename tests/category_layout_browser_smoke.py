@@ -63,7 +63,7 @@ def main():
                 visible.first.locator('.pulse-news-col-6 button').click();expect(page.locator('.pulse-news-detail:visible .pulse-affected-files > li')).to_have_count(4)
             candidate=dict(board_event,kind='board_candidate',subject='boards/acme/kit',confidence='candidate',detail='Possible source change',path='boards/acme/kit/kit.dts')
             mount('board_feature',[candidate,board_event,dict(board_event,detail='New supported metadata entry: spi')],static)
-            expect(visible).to_have_count(1);expect(page.locator('.pulse-signal-preview')).to_have_count(1)
+            expect(visible).to_have_count(1);expect(page.locator('.pulse-evidence-badge')).to_have_text('Possible support +1');expect(page.locator('.pulse-signal-preview')).to_have_count(0)
             expect(page.locator('.pulse-board-profile-link')).to_have_count(1)
             evidence=page.get_by_label('Evidence type');evidence.select_option('Possible support');expect(visible).to_have_count(1);evidence.select_option('Declared metadata');expect(visible).to_have_count(1);evidence.select_option('Explicit source change');expect(visible).to_have_count(0);evidence.select_option('')
             visible.first.locator('.pulse-news-toggle').click();panel=page.locator('.pulse-news-detail:visible .pulse-news-detail-panel')
