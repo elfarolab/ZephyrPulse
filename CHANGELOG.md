@@ -1,3 +1,9 @@
+# v0.3.31 — Scoped analysis caches and blue-teal freshness
+
+- Separate inventory/target evidence, release metadata snapshots and recent Git file-manifest fingerprints. Follow producer source and direct local dependencies rather than entire mixed-purpose modules. Shared DTS/parser changes still invalidate the affected hardware caches together; presentation and classification changes no longer invalidate unrelated data. Cache format and indirect dependencies have explicit maintenance rules.
+- Promote existing cache entries only when they match the exact v0.3.30 global source fingerprint and the unchanged scoped producer baseline. Other stale versions are recomputed safely. No database schema change or classifier migration.
+- Replace warm freshness row backgrounds with cool blue-teal shades in light and dark themes, retaining the yellow `last` badge, all time thresholds and auto-expiration. Adjust highlighted link color for contrast. CSS fingerprint changes may cause a one-time larger HTML upload; renderer configuration is unchanged.
+
 # v0.3.30 — Unified board capability news and kernel / architecture
 
 - Merge declared board capability and possible board support evidence into the Board capability changes page. Group by commit and named board/target scope, attaching folder-level evidence only when there is one matching named scope for the commit/folder. Keep ambiguous shared-folder evidence separate. Original signals, confidence, paths and complete commit manifests remain available, with an evidence-type filter. Preserve the raw classifier kinds and legacy page URL (redirect with a fallback link).

@@ -61,3 +61,9 @@ The freshness regression test (`python tests/freshness_browser_smoke.py`) uses a
 controlled browser clock to verify the four-, twelve- and twenty-four-hour
 thresholds, light/dark colors, mobile badge geometry, dynamic table updates,
 filtering, sorting, expansion and automatic expiry.
+
+## Scoped analysis cache maintenance
+
+`performance.py` fingerprints three cache domains from their producer functions and statically discoverable local source dependencies. The inventory includes per-target DTS evidence; release snapshots share the DTS and YAML parsers but have their own producer. Recent Git file manifests depend on the diff reader only. The existing exact-release-inclusion cache and Zensical cache remain separate.
+
+When adding indirect dependencies (object methods, dynamic imports, runtime dispatch, non-Python inputs) register the relevant producer roots or bump `CACHE_FORMAT` for a storage/validation change. Direct local function and constant dependencies are followed automatically. Progress reporting is deliberately excluded. These fingerprints are not a general Python runtime dependency tracker. Keep the v0.3.30 promotion constants fixed; a changed producer must not accept legacy cache entries. Run `python -m unittest discover -s tests -p test_cache_fingerprints.py -v` to check invalidation isolation and migration.

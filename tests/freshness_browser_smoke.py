@@ -35,7 +35,14 @@ def main():
         assert page.evaluate("PulseFreshness.ageBand('invalid')") == ''
         row=page.locator('.pulse-news-row.pulse-fresh-last').first
         def bg():return row.locator('td').first.evaluate('el=>getComputedStyle(el).backgroundColor')
-        light=bg();page.evaluate("document.body.dataset.mdColorScheme='slate'");dark=bg();assert light!=dark,(light,dark)
+        light=bg();assert light=='rgb(213, 238, 245)',light
+        def colors():
+            return [page.locator('.pulse-news-row.pulse-fresh-'+band).first.locator('td').first.evaluate('el=>getComputedStyle(el).backgroundColor') for band in ('last','recent','today')]
+        assert colors()==['rgb(213, 238, 245)','rgb(228, 244, 248)','rgb(240, 249, 252)']
+        page.evaluate("document.body.dataset.mdColorScheme='slate'");dark=bg();assert dark=='rgb(45, 80, 94)',dark
+        assert colors()==['rgb(45, 80, 94)','rgb(43, 68, 83)','rgb(38, 57, 68)']
+        assert row.locator('.pulse-fresh-badge').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgb(250, 204, 21)'
+        assert row.locator('.pulse-commit-expand').first.evaluate('el=>getComputedStyle(el).color')=='rgb(102, 228, 223)' 
         for width in (1440,390):
             page.set_viewport_size({'width':width,'height':900})
             assert row.locator('.pulse-news-expand').evaluate('el=>el.scrollWidth<=el.clientWidth+1')

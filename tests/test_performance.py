@@ -122,3 +122,25 @@ class PerformanceTests(TestCase):
         self.assertFalse(files['second'].exists())
         with self.assertLogs(level='INFO') as logs: build_site(self.root,Fake(),'https://example.invalid/')
         self.assertIn('Board HTML: 0 new, 0 changed, 1 unchanged, 1 removed','\n'.join(logs.output))
+
+    def test_scoped_upgrade_reuses_actual_cached_producers(self):
+        from performance import _LEGACY_VERSION, _LEGACY_BASELINE, _versions
+        from news_groups import recent_files
+        if _versions() != _LEGACY_BASELINE:
+            self.skipTest('Exact v0.3.30 producer migration only applies to unchanged baseline')
+        head=self.setup_boards(); self.git('tag','v4.0.0',head)
+        now=dt.datetime.now(UTC)
+        boards=inventory(self.g,head,self.db)
+        tags=release_tags(self.g,{'4.0'})
+        snapshots=release_snapshots(self.g,tags,boards,{},now,self.db)
+        collect(self.db,self.g,head,now,72)
+        manifests=recent_files(self.db,self.g)
+        self.db.execute('UPDATE performance_cache SET version=?',(_LEGACY_VERSION,));self.db.commit()
+        with patch('intelligence._inventory',side_effect=AssertionError('inventory recomputed')), \
+             patch('intelligence.blobs',side_effect=AssertionError('release snapshot recomputed')), \
+             patch.object(self.g,'changes',side_effect=AssertionError('Git manifest recomputed')), \
+             self.assertLogs(level='INFO') as logs:
+            self.assertEqual(inventory(self.g,head,self.db),boards)
+            self.assertEqual(release_snapshots(self.g,tags,boards,{},now,self.db),snapshots)
+            self.assertEqual(recent_files(self.db,self.g),manifests)
+        self.assertEqual(sum('migrated to scoped fingerprint' in x for x in logs.output),3)

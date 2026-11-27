@@ -420,9 +420,10 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 .pulse-vendor-explorer-scroll {max-width:100%;overflow-x:auto;border:1px solid var(--md-default-fg-color--lightest,#cbd5e1);border-radius:.5rem;}
 .pulse-vendor-explorer .pulse-vendor-activity {font-size:.65rem;margin-left:.55rem;white-space:nowrap;}
 
-/* Rolling commit freshness: three restrained, theme-aware background tints. */
-:root {--pulse-fresh-last-bg:#fff0bf;--pulse-fresh-recent-bg:#fff6da;--pulse-fresh-today-bg:#fffaed;}
-[data-md-color-scheme="slate"] {--pulse-fresh-last-bg:#393224;--pulse-fresh-recent-bg:#302c25;--pulse-fresh-today-bg:#282722;}
+/* Rolling commit freshness: blue-teal tints, with an independent yellow last badge. */
+:root {--pulse-fresh-last-bg:#d5eef5;--pulse-fresh-recent-bg:#e4f4f8;--pulse-fresh-today-bg:#f0f9fc;--pulse-fresh-link:#00676e;}
+[data-md-color-scheme="slate"] {--pulse-fresh-last-bg:#2d505e;--pulse-fresh-recent-bg:#2b4453;--pulse-fresh-today-bg:#263944;--pulse-fresh-link:#66e4df;}
+:is(.pulse-fresh-last,.pulse-fresh-recent,.pulse-fresh-today) {--md-typeset-a-color:var(--pulse-fresh-link);}
 .pulse-fresh-last {--pulse-fresh-bg:var(--pulse-fresh-last-bg);}
 .pulse-fresh-recent {--pulse-fresh-bg:var(--pulse-fresh-recent-bg);}
 .pulse-fresh-today {--pulse-fresh-bg:var(--pulse-fresh-today-bg);}
