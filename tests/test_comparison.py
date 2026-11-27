@@ -37,7 +37,7 @@ class ComparisonTest(unittest.TestCase):
         self.assertNotIn('can',b['metadata']['features']);self.assertIn('adc',b['metadata']['features']);self.assertNotIn('adc',b['releases'][0]['features'])
         self.assertIsNone(unknown['metadata']);self.assertFalse(unknown['releases'][0]['found'])
         self.assertEqual(a['metadata']['ram'],256);self.assertEqual(a['metadata']['flash'],1024)
-        self.assertEqual(data['preferences']['requirements'],['can-fd']);self.assertIn('unwatched',(docs/'index.md').read_text())
+        self.assertEqual(data['preferences']['requirements'],['can-fd']);self.assertIn('unwatched',(docs/'board.md').read_text()); self.assertNotIn('pulse-category-summary',(docs/'index.md').read_text()); self.assertIn('Watchlist highlights',(docs/'index.md').read_text())
         self.assertTrue((docs/'compare.md').exists());self.assertTrue((docs/'settings.md').exists())
 
     def test_conservative_aliases(self):

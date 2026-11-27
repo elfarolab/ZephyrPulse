@@ -12,3 +12,4 @@ test('source evidence participates in search, disabled-only features do not',()=
 });
 
 test('board images stay associated with exact board targets',()=>{const image='data/board-images/'+ 'a'.repeat(40)+'.webp';const result=S.records({boards:[{id:'a',image_url:image}],comparison:{targets:[{board_id:'a',target:'a/cpu'},{board_id:'b',target:'b/cpu'}]}});assert.equal(result[0].image,image);assert.equal(result[1].image,undefined);});
+test('exact board news links retain commit and avoid unassociated URLs',()=>{const b={id:'a',name:'kit',url:'boards/kit-abc.html'};const e={kind:'board',subject:'kit',sha:'a'.repeat(40),boards:['a'],board_profile_url:b.url};const result=S.records({boards:[b],events:[e,{...e,subject:'unknown',boards:[]}]});assert.equal(result[0].url,b.url);assert(result[0].commit.endsWith(e.sha));assert.equal(result[1].boardProfile,undefined);assert(result[1].url.endsWith(e.sha));});

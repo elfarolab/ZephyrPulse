@@ -1,3 +1,11 @@
+# v0.3.18 — Compact overview and board navigation
+
+- Replace the redundant homepage category preview table with ten linked dashboard cards, including Other changes. Five columns on desktop, two on small screens, and one on very narrow screens; keep personal watchlist highlights and global feed links.
+- Resolve exact board names, qualified targets and unique board-folder references to existing board profiles. Preserve non-board subject filters; offer a separate subject-filter action in board news details and a separate target filter in comparator discovery. Ambiguous board associations retain explicit related profile links rather than guessing.
+- Use profile links in release inclusion, watchlist fallback, search results and board-scoped PR references; preserve upstream commit and proposal links.
+- Fix ambiguous Playwright watchlist selector with a dedicated test ID, use a loopback fixture server instead of intercepted routes, and test dashboard geometry and both news rendering paths. Document the public synthetic PNG in the CI workflow.
+- No database or configuration changes. Source changes may invalidate the disposable analysis cache on the first run; no new classifier migration.
+
 # v0.3.17 — Board overview images
 
 - Add compact, responsive board overview cards and lazy image thumbnails in exact-target hardware search. Read matching raster documentation assets from local Git, reuse immutable blob filenames and retain source attribution. No new dependencies or remote requests. Missing or ambiguous photos use a placeholder. Set `board_images: false` to disable publication.

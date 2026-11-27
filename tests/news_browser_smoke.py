@@ -56,6 +56,40 @@ def main():
         assert first.locator('button').get_attribute('aria-expanded')=='true'
         page.get_by_role('button',name='Subject / target').click();assert page.locator('.pulse-news-detail:visible').count()==1
         first.locator('.pulse-news-toggle').press('Enter');assert page.locator('.pulse-news-detail:visible').count()==0
+        # Test profile links and the separate exact filter without network access.
+        board={'id':'kit','name':'kit','full_name':'Test Kit','folder':'boards/a/kit','slug':'kit-abc','url':'boards/kit-abc.html','targets':['kit/chip'],'socs':['chip'],'vendor':'a'}
+        event=dict(row,subject='kit/chip',path='boards/a/kit/kit.yaml',boards=['kit'],board_profile_url=board['url'])
+        other=dict(row,subject='unrelated',kind='driver',boards=[])
+        for dynamic in (False,True):
+            if dynamic:
+                page.evaluate("""([e,o,b])=>{const mount=document.createElement('div');document.body.replaceChildren(mount);PulseNews.render(mount,[e,o],new Map([[b.id,b]]));}""",[event,other,board])
+            else:
+                page.evaluate("html=>{document.body.innerHTML=html;PulseNews.init(document.querySelector('[data-pulse-news]'));}",render_news_table([event,other],boards={'kit':board}))
+            profile=page.locator('.pulse-news-row .pulse-board-profile-link');assert profile.count()==1;assert profile.get_attribute('href')==board['url']
+            # Capture the actual click target while preventing navigation in this isolated fixture.
+            page.evaluate("""()=>{window.profileClick=null;document.querySelector('.pulse-board-profile-link').addEventListener('click',e=>{window.profileClick=e.currentTarget.getAttribute('href');e.preventDefault();});}""")
+            profile.click();assert page.evaluate('window.profileClick')==board['url'];assert page.locator('.pulse-news-row:visible').count()==2
+            page.locator('.pulse-news-row').first.locator('.pulse-news-toggle').click();page.locator('.pulse-news-detail:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==1
+            page.locator('.pulse-news-detail:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==2
+        # Watchlist chips and visible subject links must be independently selectable.
+        page.evaluate("""([e,b])=>{document.body.innerHTML='<div id="pulse-home-watch"></div><div id="pulse-home-fallback">fallback</div>';window.PulsePreferences={load:async()=>({data:{boards:[b],events:[e]},store:{get:()=>({boards:['kit'],vendors:[],peripherals:[],home_limit:8})}})};}""",[event,board])
+        page.add_script_tag(content=(ROOT/'docs/assets/intelligence.js').read_text().replace("new URL('./', document.currentScript.src)","new URL('https://pulse.test/assets/')"))
+        page.locator('#pulse-home-watch').get_by_test_id('watch-tag').filter(has_text='kit').wait_for()
+        assert page.locator('#pulse-home-watch .pulse-news-row .pulse-board-profile-link').get_attribute('href')==board['url']
+        assert page.locator('#pulse-home-fallback').is_hidden()
+        # Actual generated dashboard markup, not an independently drawn mock-up.
+        from tempfile import TemporaryDirectory
+        from pulse import connect,render,UTC
+        import datetime as dt
+        import re
+        with TemporaryDirectory() as tmp:
+            docs=Path(tmp)/'docs';db=connect(Path(tmp)/'fixture.sqlite')
+            render(db,docs,dt.datetime.now(UTC),72,'https://example.invalid/');db.close()
+            dashboard=re.search(r'<div class="pulse-stats">.*?</div>',(docs/'index.md').read_text(),re.S).group()
+        page.evaluate('html=>{document.body.innerHTML=html}',dashboard)
+        assert page.locator('.pulse-stats a').count()==10;assert page.locator('.pulse-stats a[href="other.html"]').count()==1
+        for width,columns in ((2048,5),(1440,5),(1024,5),(390,2),(320,1)):
+            page.set_viewport_size({'width':width,'height':900});assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==columns
         assert not errors,errors
         browser.close()
     print('Direct Chromium news table test passed: logo CSS, fallback, 205 rows, expansion, pagination, filters, mobile.')

@@ -8,7 +8,9 @@ COLUMNS = ('UTC date / time', 'Category', 'Subject / target', 'Headline', 'Confi
 def render_news_table(items, statuses=None, boards=None, idx=None, related=None):
     from pulse import UPSTREAM, CATEGORIES, CATEGORY_ICONS, icon
     from intelligence import board_ids, folder_index
+    from board_links import BoardLinks, profile_url
     statuses = statuses or {}; boards = boards or {}; idx = idx if idx is not None else folder_index(boards)
+    resolver=BoardLinks(boards)
     related = related if related is not None else subject_categories(items)
     if not items:
         return '_No matching events in this window._\n'
@@ -22,14 +24,18 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
         stamp = r['committed'][:16].replace('T', ' '); confidence = r['confidence'].capitalize()
         rel = statuses.get(sha, r.get('release', {})); release = rel.get('first_release') or ('Not in tracked releases' if rel.get('status') == 'main_only' else 'Unknown')
         ids = r.get('boards') if 'boards' in r else board_ids(r, boards, idx)
+        key=resolver.resolve(r,ids)
+        if key is not None and key not in ids: ids=[*ids,key]
         linked = [boards[k] for k in ids if k in boards]
+        filter_link=f'<a class="pulse-subject-filter" href="{kind}.html?subject={quote(subject,safe="")}" data-subject="{escape(subject,quote=True)}">{escape(subject)}</a>'
+        subject_link=(f'<a class="pulse-board-profile-link" href="{profile_url(boards[key])}" title="Open board profile">{escape(subject)}</a>' if key is not None else filter_link)
         vendors = ' '.join(str(b.get('vendor',''))+' '+str(b.get('vendor_name','')) for b in linked)
         url = f'{UPSTREAM}/commit/{quote(sha,safe="")}'
         path = r.get('path') or ''; revision = r.get('source_revision') or sha; source = f'{UPSTREAM}/blob/{quote(revision,safe="")}/{quote(path,safe="/")}'
         typ = r.get('change_type') or 'Unknown'
         out.append(f'<tr class="pulse-news-row pulse-cat-{kind}" data-change-type="{escape(typ,quote=True)}" data-kind="{escape(kind,quote=True)}" data-time="{escape(r["committed"],quote=True)}" data-vendor="{escape(vendors,quote=True)}" data-confidence="{escape(confidence,quote=True)}">')
         out.append(f'<td class="pulse-news-expand"><button type="button" class="pulse-news-toggle" aria-expanded="true" aria-label="Details for {escape(subject,quote=True)}"><span aria-hidden="true">▾</span></button></td>')
-        vals = [escape(stamp), f'<a class="pulse-category-link" href="{kind}.html">{icon(CATEGORY_ICONS[kind])} {escape(CATEGORIES[kind])}</a>', f'<a class="pulse-subject-filter" href="{kind}.html?subject={quote(subject,safe="")}" data-subject="{escape(subject,quote=True)}">{escape(subject)}</a>', escape(headline), escape(confidence), escape(release), escape(sha[:10])]
+        vals = [escape(stamp), f'<a class="pulse-category-link" href="{kind}.html">{icon(CATEGORY_ICONS[kind])} {escape(CATEGORIES[kind])}</a>', subject_link, escape(headline), escape(confidence), escape(release), escape(sha[:10])]
         for i, val in enumerate(vals):
             out.append(f'<td class="pulse-news-col-{i}" title="{escape([stamp,CATEGORIES[kind],subject,headline,confidence,release,sha][i],quote=True)}">{val}</td>')
         out.append('</tr>')
@@ -38,6 +44,8 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
         peers = [k for k in CATEGORIES if k != kind and k in related.get(subject.casefold(), set())]
         if peers:
             out.append('<p>Same subject in other categories: '+ ' · '.join(f'<a href="{k}.html?subject={quote(subject,safe="")}">{escape(CATEGORIES[k])}</a>' for k in peers) + '</p>')
+        if key is not None:
+            out.append(f'<p>Subject filter: {filter_link}</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
         if path: out.append(f'<p>Source: <code>{escape(path)}</code>{" (before removal)" if revision != sha else ""}</p>')
         out.append(f'<p class="pulse-news-links"><a href="{url}">{icon("commit")} Commit {escape(sha)}</a>'+ (f' · <a href="{source}">{icon("source")} Source file</a>' if path else '') + (' · Board profiles: '+links if links else '')+f' · <a href="hardware-search.html?subject={quote(subject,safe="")}">Related hardware / news</a></p></article></td></tr>')

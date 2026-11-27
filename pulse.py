@@ -370,12 +370,11 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
         return render_news_table(items, statuses, boards, idx, related)
     home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'Hardware-focused news from upstream Zephyr. Source evidence is not proof of working hardware.','','<div class="pulse-stats">']
     for k,v in CATEGORIES.items():
-        if k!='other': home.append(f'<a href="{k}.html" class="pulse-cat-{k}"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><strong>{counts[k]}</strong><span class="pulse-stat-label">{escape(v)}</span></a>')
+        home.append(f'<a href="{k}.html" class="pulse-cat-{k}"><span class="pulse-stat-top"><span class="pulse-stat-symbol">{icon(CATEGORY_ICONS[k])}</span>{icon("arrow")}</span><strong>{counts[k]}</strong><span class="pulse-stat-label">{escape(v)}</span></a>')
     home += ['</div>','','<div class="pulse-tools">']
     for href,label,ico in [('compare','Compare hardware','compare'),('hardware-search','Hardware search','search'),('boards','Board explorer','board'),('settings','Settings','settings')]:
         home.append(f'<a href="{href}.html">{icon(ico)} {label}</a>')
-    from news_table import render_category_summary
-    home += ['</div>','','## Priority highlights','','News grouped by category for the rolling window. Expand a category for its three newest events, or select its name to open the full table. All categories remain visible regardless of your watchlist.','',render_category_summary(rows,statuses,boards,idx),'','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
+    home += ['</div>','','<!-- pulse-watchlist-slot -->','','[All commits](all.md) · [RSS feed](feed.xml) · [JSON feed](events.json)']
     (docs/'index.md').write_text('\n'.join(home))
     for k,v in CATEGORIES.items():
         content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else blocks([r for r in rows if r['kind']==k]))

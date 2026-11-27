@@ -281,3 +281,11 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 .pulse-search-result {display:flow-root}
 .pulse-search-board-photo {float:right;width:5rem;height:3.75rem;object-fit:contain;margin:0 0 .4rem .6rem}
 @media (max-width:600px) {.pulse-board-overview {grid-template-columns:minmax(0,1fr);gap:.5rem}.pulse-board-photo img {width:100%;max-width:100%;height:8rem;max-height:8rem}.pulse-board-overview-meta dl {grid-template-columns:auto minmax(0,1fr)}}
+
+/* Dashboard: exactly five columns on desktop, no duplicate category summary. */
+.pulse-stats {grid-template-columns:repeat(5,minmax(0,1fr));max-width:60rem;margin-inline:auto;}
+.pulse-stats a {min-width:0;overflow-wrap:anywhere;}
+@media (max-width:60em) {.pulse-stats {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:22em) {.pulse-stats {grid-template-columns:1fr;}}
+.pulse-news-list .pulse-board-profile-link {color:var(--md-typeset-a-color,#087e83);font-weight:600;}
+.pulse-board-profile-link:hover {text-decoration:underline;}

@@ -34,11 +34,16 @@ class IntelligenceTest(unittest.TestCase):
         docs=self.root/'docs'; render(self.db,docs,now,72,'https://example.invalid/',statuses)
         render_extra(self.db,docs,now,sha,boards,coverage,tags,{'status':'disabled','items':[]},statuses,watch,'https://example.invalid/')
         data=json.loads((docs/'intelligence.json').read_text()); self.assertEqual(len(data['boards']),3)
-        self.assertIn('unwatched',(docs/'index.md').read_text()); self.assertIn('unwatched',(docs/'boards.md').read_text()); self.assertNotIn('unwatched',(docs/'watchlist.md').read_text())
+        self.assertIn('unwatched',(docs/'board.md').read_text()); self.assertNotIn('pulse-category-summary',(docs/'index.md').read_text()); self.assertIn('Watchlist highlights',(docs/'index.md').read_text()); self.assertIn('unwatched',(docs/'boards.md').read_text()); self.assertNotIn('unwatched',(docs/'watchlist.md').read_text())
         self.assertTrue((docs/'watchlist.xml').exists()); self.assertIn('Declared',(docs/'boards'/f"{boards[key]['slug']}.md").read_text())
         # JSON and static page include release metadata; browser filtering doesn't alter global events.
         self.assertTrue(any(x['watched'] for x in json.loads((docs/'data/news-view.json').read_text())['events'])); self.assertTrue(any(not x['watched'] for x in json.loads((docs/'data/news-view.json').read_text())['events']))
         self.assertIn('v4.0.0',(docs/'releases.md').read_text())
+        events=json.loads((docs/'data/news-view.json').read_text())['events']
+        self.assertTrue(any(e.get('board_profile_url')=='boards/'+boards[key]['slug']+'.html' for e in events))
+        self.assertIn('boards/'+boards[key]['slug']+'.html',(docs/'releases.md').read_text())
+        self.assertEqual((docs/'index.md').read_text().count('class="pulse-stat-label"'),10)
+        self.assertNotIn('<!-- pulse-watchlist-slot -->',(docs/'index.md').read_text())
     def test_history_retention_and_rewrite(self):
         now=dt.datetime.now(UTC); collect(self.db,self.g,self.base,now,72); boards=inventory(self.g,self.base)
         update_history(self.db,self.g,self.base,now,boards,90,0)

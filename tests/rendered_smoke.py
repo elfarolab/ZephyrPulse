@@ -21,17 +21,20 @@ def main():
             page.goto(base+'hardware-search.html');page.get_by_label('Find hardware or news (comma = OR)').fill('*kit*');page.get_by_label('Result type').select_option('target');page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();page.reload();page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();assert page.get_by_label('Find hardware or news (comma = OR)').input_value()=='*kit*'
             page.locator('.pulse-search-board-photo').first.wait_for();page.locator('.pulse-search-result h3 a').first.click();page.get_by_text('Target capability matrix',exact=True).wait_for();photo=page.locator('.pulse-board-photo img');photo.wait_for();photo.scroll_into_view_if_needed();page.wait_for_function("document.querySelector('.pulse-board-photo img').naturalWidth > 0");assert not errors,errors
             page.goto(base+'index.html');page.set_viewport_size({'width':1440,'height':900});page.locator('.md-tabs').wait_for(state='visible');page.evaluate('window.scrollTo(0,document.body.scrollHeight)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();page.evaluate('window.scrollTo(0,0)');page.wait_for_timeout(350);assert page.locator('.md-tabs').is_visible();assert not page.locator('.md-sidebar--secondary').count() or not page.locator('.md-sidebar--secondary').is_visible();page.locator('#pulse-home-watch').get_by_text('Your browser watchlist').wait_for();assert page.get_by_role('link',name='Hardware search',exact=True).count()>0
-            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==9
+            assert page.locator('.pulse-stats .pulse-stat-symbol .pulse-icon').count()==10
             assert page.locator('.pulse-tools a .pulse-icon').count()==4
             assert page.locator('.md-tabs__link .pulse-icon').count()==6
             assert not page.locator('.md-sidebar--primary').count() or not page.locator('.md-sidebar--primary').is_visible()
             assert page.locator('.pulse-stats .pulse-icon').first.evaluate("el=>getComputedStyle(el).maskImage!=='none'")
             assert page.locator('.md-header__button.md-logo:visible').count()==0
-            group=page.locator('.pulse-category-group').filter(has=page.locator('.pulse-news-table')).first;group.locator('summary strong').click();table=group.locator('.pulse-news-table');table.locator('.pulse-news-row').first.wait_for();assert table.locator('.pulse-news-detail:visible').count()==0
-            table.locator('.pulse-news-row').first.locator('button').click();assert table.locator('.pulse-news-detail:visible a').count()>0
+            assert page.locator('.pulse-category-summary').count()==0
+            assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==5
+            page.locator('.pulse-stats a[href="other.html"]').click();page.wait_for_url(base+'other.html');page.goto(base+'index.html')
+            page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==2
             page.set_viewport_size({'width':1920,'height':1000});assert page.locator('.md-main__inner').evaluate('el=>el.getBoundingClientRect().width') <= 1920*.72
             page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog').get_by_role('link',name='kit/chip',exact=True).wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0
+            profile=page.locator('.pulse-news-row .pulse-board-profile-link').first;profile.wait_for();profile.click();page.wait_for_url('**/boards/*.html');page.get_by_text('Target capability matrix',exact=True).wait_for();page.go_back();page.locator('.pulse-news-row').first.wait_for()
             page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-news-row').first.evaluate("el=>getComputedStyle(el).display")=='grid'
             browser.close()
     finally:server.shutdown();server.server_close();thread.join()

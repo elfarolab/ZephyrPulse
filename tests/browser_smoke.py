@@ -1,5 +1,5 @@
 """Optional real-browser test: python tests/browser_smoke.py (Playwright + Chromium).
-Uses a synthetic static site (mocked HTTP responses) with the same mounts as the generated pages.
+Uses a synthetic static site served over loopback HTTP with the same mounts as the generated pages.
 Does not require a static site generator or make external network requests.
 """
 import json
@@ -7,8 +7,19 @@ from pathlib import Path
 import shutil
 import tempfile
 from playwright.sync_api import sync_playwright
-from urllib.parse import urlparse
-import mimetypes
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from functools import partial
+from threading import Thread
+from contextlib import contextmanager
+
+@contextmanager
+def fixture_server(root):
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, *args): pass
+    server=ThreadingHTTPServer(("127.0.0.1",0),partial(QuietHandler,directory=str(root)))
+    thread=Thread(target=server.serve_forever,daemon=True);thread.start()
+    try: yield f"http://127.0.0.1:{server.server_port}/"
+    finally: server.shutdown();server.server_close();thread.join()
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -18,7 +29,7 @@ def main():
         def target(id,features):
             return {'id':id,'board_id':id,'board':id,'name':id,'vendor':'test','vendor_name':'Test','socs':[id],'target':id,'url':'boards.html','metadata':{'features':features,'path':'boards/test/kit.yaml','arch':'arm','ram':256,'flash':1024},'releases':[{'tag':'v4.0.0','found':True,'features':['can'],'path':'boards/test/kit.yaml'}],'last_milestone':None,'milestone_count':0,'vendor_commits':None,'vendor_last':None}
         def event(id):return {'subject':id,'detail':id,'path':'boards/test/kit.yaml','sha':'a'*40,'committed':'2026-01-01T10:00:00Z','kind':'board','confidence':'observed','boards':[]}
-        data={'head':'a'*40,'watchlist':{'boards':['*mcxn*'],'vendors':[],'peripherals':[]},'preferences':{'requirements':['can-fd']},'boards':[],'events':[event('mcxn947'),event('ra8p1'),event('unwatched')],'vendors':[],'coverage':{'complete':True},'comparison':{'features':['can','can-fd','ethernet'],'targets':[target('mcxn947',['can','ethernet']),target('ra8p1',['can','can-fd'])],'snapshots':[{'tag':'v4.0.0','latest_stable':True,'lts':False,'lifecycle':'Stable'}]}}
+        data={'head':'a'*40,'watchlist':{'boards':['*mcxn*'],'vendors':[],'peripherals':[]},'preferences':{'requirements':['can-fd']},'boards':[{'id':'ra8p1','name':'ra8p1','full_name':'RA8P1 board','folder':'boards/test/ra8p1','socs':['chip'],'targets':['ra8p1'],'vendor':'test','vendor_name':'Test','url':'boards/ra8p1.html'}],'events':[event('mcxn947'),dict(event('ra8p1'),boards=['ra8p1'],board_profile_url='boards/ra8p1.html'),event('unwatched')],'vendors':[],'coverage':{'complete':True},'comparison':{'features':['can','can-fd','ethernet'],'targets':[target('mcxn947',['can','ethernet']),target('ra8p1',['can','can-fd'])],'snapshots':[{'tag':'v4.0.0','latest_stable':True,'lts':False,'lifecycle':'Stable'}]}}
         import sys
         sys.path.insert(0,str(ROOT))
         from browser_data import publish_catalog
@@ -27,7 +38,7 @@ def main():
             t['metadata']['dts_evidence']={'present_features':['can'], 'nodes':[{'features':['can'],'compatible':'test,can','compatible_paths':['dts/test.dtsi'],'status_paths':[]}]}
         comparison=data.pop('comparison');publish_catalog(root,comparison,data)
         data['comparison']=comparison
-        scripts=''.join(f'<script src="assets/{s}.js"></script>' for s in ['theme-zensical','preferences','intelligence','comparator','hardware-search','news'])
+        scripts=''.join(f'<script src="assets/{s}.js"></script>' for s in ['theme-zensical','preferences','table-controls','intelligence','comparator','hardware-search','news'])
         import sys
         sys.path.insert(0,str(ROOT))
         from pulse import CATEGORIES
@@ -35,18 +46,14 @@ def main():
         news_fixture=render_news_table([dict(event(f'Event {i:03d}'),committed=f'2026-01-01T10:{i%60:02d}:00Z',commit_subject=f'Headline {i:03d}') for i in range(205)])
         for name,body in {'index':'<div id="pulse-home-watch"></div><div id="pulse-home-fallback">server fallback</div><section id="global">mcxn947 ra8p1 unwatched</section>','compare':'<div id="pulse-comparator"></div>','settings':'<div id="pulse-settings"></div>','watchlist':'<div id="pulse-watchlist"></div>','hardware-search':'<div id="pulse-hardware-search"></div>','news':news_fixture,'board':news_fixture,'grouped':render_category_summary([event('mcxn947'),event('ra8p1')],{},{},{})}.items():
             (root/(name+'.html')).write_text('<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="assets/pulse.css"><body>'+body+scripts+'</body>')
-        base='https://pulse.test/'
-        with sync_playwright() as pw:
+        (root/'boards').mkdir();(root/'boards/ra8p1.html').write_text('<h1>RA8P1 board profile</h1>')
+        with fixture_server(root) as base, sync_playwright() as pw:
             args={'headless':True,'args':['--no-sandbox']};exe=shutil.which('chromium');
             if exe:args['executable_path']=exe
             browser=pw.chromium.launch(**args);page=browser.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-            def fixture(route):
-                path=root/urlparse(route.request.url).path.lstrip('/')
-                if path.is_file():route.fulfill(status=200,body=path.read_bytes(),content_type=mimetypes.guess_type(path)[0] or 'application/octet-stream')
-                else:route.fulfill(status=404,body='not found')
-            page.route(base+'**',fixture)
             page.goto(base+'settings.html');page.get_by_label('Board / SoC patterns (comma separated)').fill('ra8P1');page.get_by_role('button',name='Save preferences').click();page.get_by_text('Saved in this browser.').wait_for()
-            page.goto(base+'index.html');page.locator('#pulse-home-watch').get_by_text('ra8p1',exact=True).wait_for();assert not page.locator('#pulse-home-fallback').is_visible();assert 'unwatched' in page.locator('#global').inner_text();assert 'mcxn947' not in page.locator('#pulse-home-watch').inner_text()
+            page.goto(base+'index.html');page.locator('#pulse-home-watch').get_by_test_id('watch-tag').filter(has_text='ra8P1').wait_for();page.locator('#pulse-home-watch .pulse-news-row .pulse-news-col-2').get_by_role('link',name='ra8p1',exact=True).wait_for();assert page.locator('#pulse-home-watch .pulse-board-profile-link').get_attribute('href')=='boards/ra8p1.html';assert not page.locator('#pulse-home-fallback').is_visible();assert 'unwatched' in page.locator('#global').inner_text();assert 'mcxn947' not in page.locator('#pulse-home-watch').inner_text()
+            watch=page.locator('#pulse-home-watch');watch.locator('.pulse-news-toggle').click();watch.locator('.pulse-news-detail:visible .pulse-subject-filter').click();watch.get_by_role('button',name='Clear subject filter').wait_for();watch.get_by_role('button',name='Clear subject filter').click();watch.locator('.pulse-board-profile-link').click();page.wait_for_url(base+'boards/ra8p1.html');page.get_by_role('heading',name='RA8P1 board profile').wait_for()
             page.goto(base+'compare.html');page.get_by_role('button',name='Add',exact=True).first.wait_for();page.get_by_role('button',name='Add',exact=True).first.click();page.get_by_role('button',name='Add',exact=True).click();page.get_by_text('2 / 8 selected targets').wait_for();assert page.locator('.pulse-state').count()>0;page.get_by_text('Source evidence loaded for selected targets.').wait_for();assert page.get_by_role('link',name='test,can',exact=True).count()>0
             page.reload();page.get_by_text('2 / 8 selected targets').wait_for();page.get_by_label('Compare source metadata at').select_option('v4.0.0');page.get_by_text('0/1 with evidence · 0 YAML · 0 DTS hints',exact=True).first.wait_for();assert page.get_by_text('0/1 with evidence · 0 YAML · 0 DTS hints',exact=True).count()==2
             page.goto(base+'settings.html');page.get_by_text('2 selected targets.').wait_for();assert page.get_by_label('Comparison baseline').input_value()=='v4.0.0';assert page.get_by_label('Board / SoC patterns (comma separated)').input_value()=='ra8P1'

@@ -347,9 +347,16 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     cov=f"History: **{coverage['processed']} / {coverage['total']}** first-parent commits processed in the last {coverage['days']} days. {'Complete.' if coverage['complete'] else 'Backfill in progress; counts are incomplete.'}"
     if coverage.get('classification_pending'): cov += f" Classifier refresh pending for {coverage['classification_pending']} previously processed commits; historical signals may be mixed until complete."
     idx=folder_index(boards)
+    from board_links import BoardLinks, profile_url
+    board_links=BoardLinks(boards)
     rows=[dict(r) for r in db.execute('SELECT e.*,c.committed,c.subject AS commit_subject FROM events e JOIN commits c USING(sha) ORDER BY c.committed DESC,sha,kind,subject')]
     for r in rows:
-        r['boards']=board_ids(r,boards,idx); r['release']=statuses.get(r['sha'],{}); r['watched']=watch_match(r,boards,watch)
+        r['boards']=board_ids(r,boards,idx); r['release']=statuses.get(r['sha'],{})
+        key=board_links.resolve(r,r['boards'])
+        if key is not None:
+            r['board_profile_url']=profile_url(boards[key])
+            if key not in r['boards']: r['boards']=[*r['boards'],key]
+        r['watched']=watch_match(r,boards,watch)
     history=defaultdict(list)
     for r in db.execute('SELECT m.*,h.committed FROM milestones m JOIN history_seen h USING(sha) ORDER BY h.committed DESC,sha,kind,label,path'):
         history[r['board']].append(dict(r))
@@ -357,6 +364,11 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         if s.get('first_release'):
             lts=s.get('lts_tags',[]); return f"Commit in {s['first_release']} · latest tracked containing tag {s['latest_release']}" + (f" · LTS-tagged: {', '.join(lts)}" if lts else '')
         return 'Not in tracked releases — exact commit' if s.get('status')=='main_only' else 'Release inclusion unknown'
+    def subject_link(r):
+        label=md(r['subject']); url=r.get('board_profile_url')
+        if url: return f'[{label}]({url})'
+        links=' · '.join(f'[{md(boards[k]["name"])}]({profile_url(boards[k])})' for k in r.get('boards',[]) if k in boards)
+        return label+(' · '+links if links else '')
     def commit_link(sha): return f'[{sha[:10]}]({UPSTREAM}/commit/{sha})'
     def source_link(sha,path): return f'[source]({UPSTREAM}/blob/{sha}/{quote(path,safe="/")})'
     def save(name,lines):
@@ -438,15 +450,24 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     release_lines += ['','Planned releases are listed separately in the official policy; a plan does not imply a release exists.']
     release_lines += ['','## Recent hardware news: release inclusion','','| UTC date | Change | Release status | Commit |','|---|---|---|---|']
     for r in rows:
-        if r['kind'] not in ('other','docs'): release_lines.append(f"| {r['committed'][:10]} | {md(r['subject'])} | {md(release_text(r['release']))} | {commit_link(r['sha'])} |")
+        if r['kind'] not in ('other','docs'): release_lines.append(f"| {r['committed'][:10]} | {subject_link(r)} | {md(release_text(r['release']))} | {commit_link(r['sha'])} |")
     save('releases.md',release_lines)
     pr_lines=['# Upcoming hardware support','',stamp,'Open pull requests are proposals, **not merged or released support**. This optional GitHub API view scans recently updated PRs, matching hardware-related titles and labels; it is not an exhaustive roadmap.','',f"Snapshot status: **{md(prs['status'])}** · scanned {prs.get('scanned',0)} PRs · {'bounded / more pages available' if prs.get('truncated') else 'no additional pages reported'} · last successful refresh: {md(prs.get('updated','none'))}",'','| Updated UTC | Proposal | State | Labels |','|---|---|---|---|']
-    for p in prs['items']: pr_lines.append(f"| {md(p['updated'][:10])} | [#{p['number']} — {md(p['title'])}]({UPSTREAM}/pull/{p['number']}) | {'Draft' if p['draft'] else 'Open'} | {md(', '.join(p['labels']))} |")
+    # Enrich a publication-only copy; do not mutate the cached upstream PR snapshot.
+    prs={**prs,'items':[dict(p,boards=board_links.proposal(p['title'])) for p in prs['items']]}
+    for p in prs['items']:
+        keys=p['boards']
+        links=' · '.join(f'[{md(boards[k]["name"])}]({profile_url(boards[k])})' for k in keys)
+        pr_lines.append(f"| {md(p['updated'][:10])} | [#{p['number']} — {md(p['title'])}]({UPSTREAM}/pull/{p['number']}){(' · '+links) if links else ''} | {'Draft' if p['draft'] else 'Open'} | {md(', '.join(p['labels']))} |")
     if not prs['items']: pr_lines += ['| — | No matching proposals in snapshot | — | — |']
     save('upcoming.md',pr_lines)
     watched=[r for r in rows if r['watched']]
     watch_lines=['# Watchlist','',stamp,'The overview and general feeds always include all hardware news. This page is an additional personal view. Patterns are case-insensitive; plain text matches substrings, and glob patterns support `*`, `?`, `[abc]`. Any matching board, vendor or peripheral qualifies. Board names, SoCs and target identifiers are searched.','','<div id="pulse-watchlist"></div>','','The [public watchlist RSS](watchlist.xml) follows server defaults, not your personal preferences.','','<div id="pulse-watch-fallback">','<h2>Server-configured watchlist (no JavaScript fallback)</h2>']
-    for r in watched: watch_lines.append(f"<p>{r['committed'][:10]} · <a href=\"{UPSTREAM}/commit/{r['sha']}\">{escape(r['subject'])}</a> — {escape(CATEGORIES[r['kind']])}</p>")
+    for r in watched:
+        url=r.get('board_profile_url') or f'{UPSTREAM}/commit/{r["sha"]}'
+        extras=' · '.join(f'<a href="{profile_url(boards[k])}">{escape(boards[k]["name"])}</a>' for k in r['boards'] if k in boards and profile_url(boards[k])!=url)
+        commit=f' · <a href="{UPSTREAM}/commit/{r["sha"]}">Commit</a>' if r.get('board_profile_url') else ''
+        watch_lines.append(f'<p>{r["committed"][:10]} · <a href="{escape(url,quote=True)}">{escape(r["subject"])}</a> — {escape(CATEGORIES[r["kind"]])}{commit}{(" · "+extras) if extras else ""}</p>')
     if not watched: watch_lines+=['<p>No matching events.</p>']
     watch_lines+=['</div>']
     save('watchlist.md',watch_lines)
@@ -459,11 +480,11 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     publish_catalog(docs, comparison, {'updated':now.isoformat(),'head':head,'coverage':coverage,'boards':board_data,'watchlist':watch,'vendors':vendors,'releases':tags,'release_policy':policy,'pull_requests':prs,'events':rows,'preferences':preferences})
     (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'events':rows,'window_hours':hours},ensure_ascii=False),encoding='utf-8')
     # Add a second, independent watched-news section without filtering the original homepage.
-    home=docs/'index.md'; body=home.read_text(); marker='## Priority highlights'
+    home=docs/'index.md'; body=home.read_text(); marker='<!-- pulse-watchlist-slot -->'
     snippet='## Watchlist highlights\n\n[Edit preferences](settings.md) · [All watched news](watchlist.md) · [Public watchlist RSS](watchlist.xml)\n\n<div id="pulse-home-watch" class="pulse-watch-panel"></div>\n\n<div id="pulse-home-fallback">\n' 
     from news_table import render_news_table
     snippet+=(render_news_table(watched[:8],statuses,boards,idx) if watched else '<p>No matching events in this window.</p>')+'\n'
     snippet+='</div>\n' 
     snippet+='\n'
-    body=body.replace(marker,snippet+marker,1)
+    body=body.replace(marker,snippet,1)
     home.write_text(body,encoding='utf-8')
