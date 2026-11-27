@@ -4,7 +4,7 @@ import json
 from unittest import TestCase
 from unittest.mock import patch
 from test_pulse import PulseTest
-from board_images import publish, select, MAX_BYTES
+from board_images import publish, select, MAX_BYTES, detected_format, valid_raster
 from intelligence import inventory, update_history, render_extra
 from pulse import collect, render, UTC
 
@@ -62,6 +62,19 @@ class BoardImageTests(TestCase):
             _,again=build(new);reader.assert_called_once();self.assertEqual(reader.call_args.args[1],[])
         self.assertEqual(images,again);self.assertEqual(file.stat().st_mtime_ns,mtime);self.assertEqual(page.read_bytes(),original)
         self.assertEqual(publish(self.g,new,boards,docs,False),{});self.assertFalse(file.exists())
+
+    def test_image_warning_diagnostics_preserve_validation(self):
+        pointer = b'version https://git-lfs.github.com/spec/v1\n' + b'oid sha256:' + b'a'*64 + b'\nsize 100\n'
+        self.assertEqual(detected_format(pointer), 'Git LFS pointer')
+        self.assertEqual(detected_format(PNG), 'png')
+        self.assertFalse(valid_raster(PNG, 'webp'))
+        self.assertFalse(valid_raster(pointer, 'png'))
+        self.assertEqual(detected_format(b'not an image'), 'unknown/unsupported signature')
+        self.binary(self.board+'doc/kit.webp', PNG)
+        head=self.commit('mismatched image extension');boards=inventory(self.g,head)
+        with self.assertLogs(level='WARNING') as logs:
+            self.assertEqual(publish(self.g,head,boards,self.root/'docs'),{})
+        self.assertIn('expected webp; detected png', '\n'.join(logs.output))
 
     def test_bad_image_and_symlink_not_published(self):
         self.binary(self.board+'doc/kit.png',b'not an image')

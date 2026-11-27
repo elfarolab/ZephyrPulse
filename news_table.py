@@ -9,6 +9,9 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
     from pulse import UPSTREAM, CATEGORIES, CATEGORY_ICONS, icon
     from intelligence import board_ids, folder_index
     from board_links import BoardLinks, profile_url
+    def action(label, href, glyph, title=None):
+        hint = f' title="{escape(title, quote=True)}"' if title else ''
+        return f'<a href="{escape(href, quote=True)}" class="pulse-detail-link"{hint}>{icon(glyph)} <span>{escape(label)}</span></a>'
     statuses = statuses or {}; boards = boards or {}; idx = idx if idx is not None else folder_index(boards)
     resolver=BoardLinks(boards)
     related = related if related is not None else subject_categories(items)
@@ -39,16 +42,20 @@ def render_news_table(items, statuses=None, boards=None, idx=None, related=None)
         for i, val in enumerate(vals):
             out.append(f'<td class="pulse-news-col-{i}" title="{escape([stamp,CATEGORIES[kind],subject,headline,confidence,release,sha][i],quote=True)}">{val}</td>')
         out.append('</tr>')
-        links = ' · '.join(f'<a href="boards/{quote(b["slug"],safe="")}.html">{escape(b["name"])}</a>' for b in linked)
+        links = [action('Commit '+sha, url, 'commit', 'View commit on GitHub')]
+        if path:
+            links.append(action('Source file', source, 'github', 'View source file on GitHub'))
+        links.extend(action(b['name'], profile_url(b), 'board', 'Open board profile: '+b['name']) for b in linked)
         out.append(f'<tr class="pulse-news-detail"><td colspan="8"><article class="pulse-news-detail-panel"><strong>{escape(subject)}</strong><p>{escape(headline)}</p><p>{escape(r["detail"])}</p><p>Change type: {escape(typ)}</p><p>{escape(stamp)} UTC · {escape(CATEGORIES[kind])} · {escape(confidence)} · {escape(release)} (exact commit inclusion)</p>')
         peers = [k for k in CATEGORIES if k != kind and k in related.get(subject.casefold(), set())]
         if peers:
-            out.append('<p>Same subject in other categories: '+ ' · '.join(f'<a href="{k}.html?subject={quote(subject,safe="")}">{escape(CATEGORIES[k])}</a>' for k in peers) + '</p>')
+            out.append('<p>Same subject in other categories: '+ ' · '.join(action(CATEGORIES[k], f'{k}.html?subject={quote(subject,safe="")}', CATEGORY_ICONS[k]) for k in peers) + '</p>')
         if key is not None:
-            out.append(f'<p>Subject filter: {filter_link}</p>')
+            out.append(f'<p>{icon("filter")} Subject filter: {filter_link}</p>')
         if vendors: out.append(f'<p>Vendor association: {escape(vendors)}</p>')
         if path: out.append(f'<p>Source: <code>{escape(path)}</code>{" (before removal)" if revision != sha else ""}</p>')
-        out.append(f'<p class="pulse-news-links"><a href="{url}">{icon("commit")} Commit {escape(sha)}</a>'+ (f' · <a href="{source}">{icon("source")} Source file</a>' if path else '') + (' · Board profiles: '+links if links else '')+f' · <a href="hardware-search.html?subject={quote(subject,safe="")}">Related hardware / news</a></p></article></td></tr>')
+        links.append(action('Related hardware / news', f'hardware-search.html?subject={quote(subject,safe="")}', 'search'))
+        out.append('<p class="pulse-news-links">'+' '.join(links)+'</p></article></td></tr>')
     out.append('</tbody></table></div></div>')
     # One raw HTML block (no blank lines) for Markdown engines.
     return '\n'.join(out)

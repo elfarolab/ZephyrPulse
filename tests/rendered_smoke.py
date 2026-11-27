@@ -4,6 +4,8 @@ from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from threading import Thread
 from playwright.sync_api import sync_playwright
+from browser_geometry import assert_grid_rows
+import shutil
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -12,10 +14,13 @@ def main():
     thread=Thread(target=server.serve_forever,daemon=True);thread.start();base=f'http://127.0.0.1:{server.server_port}/'
     try:
         with sync_playwright() as pw:
-            browser=pw.chromium.launch(headless=True,args=['--no-sandbox']);page=browser.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+            args={'headless':True,'args':['--no-sandbox']}
+            if shutil.which('chromium'): args['executable_path']=shutil.which('chromium')
+            browser=pw.chromium.launch(**args);page=browser.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             page.set_viewport_size({'width':1440,'height':900});page.goto(base+'settings.html');page.locator('.pulse-settings-card').first.wait_for();assert page.locator('.pulse-settings-card').count()==4
-            assert page.locator('.pulse-settings-card').first.evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length") == 2
-            page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-settings-card').first.evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length") == 1
+            fields=page.locator('.pulse-settings-card').first.locator('.pulse-setting-field')
+            assert_grid_rows(fields, 2, 3)
+            page.set_viewport_size({'width':390,'height':844});assert_grid_rows(fields, 1, 3)
             page.set_viewport_size({'width':1440,'height':900});page.get_by_label('Board / SoC patterns (comma separated)').fill('*kit*');page.get_by_role('button',name='Save preferences').click();page.get_by_text('Saved in this browser.').wait_for()
             page.goto(base+'compare.html');page.get_by_role('button',name='Add',exact=True).first.click();page.get_by_text('1 / 8 selected targets').wait_for()
             page.goto(base+'hardware-search.html');page.get_by_label('Find hardware or news (comma = OR)').fill('*kit*');page.get_by_label('Result type').select_option('target');page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();page.reload();page.locator('.pulse-search-result h3').get_by_text('kit/chip',exact=True).wait_for();assert page.get_by_label('Find hardware or news (comma = OR)').input_value()=='*kit*'
@@ -28,9 +33,9 @@ def main():
             assert page.locator('.pulse-stats .pulse-icon').first.evaluate("el=>getComputedStyle(el).maskImage!=='none'")
             assert page.locator('.md-header__button.md-logo:visible').count()==0
             assert page.locator('.pulse-category-summary').count()==0
-            assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==5
+            assert_grid_rows(page.locator('.pulse-stats a'), 5, 10)
             page.locator('.pulse-stats a[href="other.html"]').click();page.wait_for_url(base+'other.html');page.goto(base+'index.html')
-            page.set_viewport_size({'width':390,'height':844});assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==2
+            page.set_viewport_size({'width':390,'height':844});assert_grid_rows(page.locator('.pulse-stats a'), 2, 10)
             page.set_viewport_size({'width':1920,'height':1000});assert page.locator('.md-main__inner').evaluate('el=>el.getBoundingClientRect().width') <= 1920*.72
             page.get_by_role('button',name='Search hardware and news').click();page.get_by_role('searchbox',name='Universal search query').fill('kit');page.locator('.pulse-universal-dialog').get_by_role('link',name='kit/chip',exact=True).wait_for();page.keyboard.press('Escape');assert not page.locator('.pulse-universal-dialog').is_visible()
             page.goto(base+'board.html');page.locator('.pulse-news-row').first.wait_for();assert page.locator('.pulse-news-detail:visible').count()==0

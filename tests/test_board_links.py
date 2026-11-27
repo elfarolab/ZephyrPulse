@@ -30,4 +30,10 @@ class BoardLinkTests(TestCase):
         self.assertIn('class="pulse-board-profile-link" href="boards/kit-abc.html"',html)
         self.assertIn('Subject filter: <a class="pulse-subject-filter"',html)
         self.assertIn('board_feature.html?subject=kit%2Fchip%2Fcpu0',html)
+        import re
+        links=re.search(r'<p class="pulse-news-links">(.*?)</p>',html).group(1)
+        for glyph in ('commit','github','board','search'):
+            self.assertIn('pulse-i-'+glyph,links)
+        self.assertIn('pulse-i-filter',html)
+        self.assertIn('href="boards/kit-abc.html" class="pulse-detail-link"',links)
         self.assertNotIn('pulse-board-profile-link',render_news_table([dict(e,subject='boards/acme/kit')],boards=self.boards))

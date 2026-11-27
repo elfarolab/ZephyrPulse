@@ -78,6 +78,8 @@ tr[hidden] {display:none!important}
 .pulse-i-intelligence{--pulse-icon:url("icons/intelligence.svg");}
 .pulse-i-commit{--pulse-icon:url("icons/commit.svg");}
 .pulse-i-source{--pulse-icon:url("icons/source.svg");}
+.pulse-i-github{--pulse-icon:url("icons/github.svg");}
+.pulse-i-filter{--pulse-icon:url("icons/filter.svg");}
 .pulse-i-arrow{--pulse-icon:url("icons/arrow.svg");}
 .pulse-i-check{--pulse-icon:url("icons/check.svg");}
 
@@ -289,3 +291,11 @@ th[aria-sort] .pulse-sort-mark {opacity:1;color:inherit;font-weight:bold;}
 @media (max-width:22em) {.pulse-stats {grid-template-columns:1fr;}}
 .pulse-news-list .pulse-board-profile-link {color:var(--md-typeset-a-color,#087e83);font-weight:600;}
 .pulse-board-profile-link:hover {text-decoration:underline;}
+
+/* Expanded evidence actions: recognizable local glyphs and mobile-safe wrapping. */
+.pulse-news-detail-panel .pulse-news-links {display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .85rem;margin-top:.5rem;}
+.pulse-detail-link {display:inline-flex;align-items:baseline;gap:.28em;min-width:0;max-width:100%;}
+.pulse-detail-link > .pulse-icon {align-self:center;flex:none;margin-right:0;}
+.pulse-detail-link > span:not(.pulse-icon) {min-width:0;overflow-wrap:anywhere;}
+.pulse-detail-link:focus-visible {outline:2px solid currentColor;outline-offset:2px;border-radius:.15rem;}
+.pulse-news-links a.pulse-detail-link .pulse-icon {margin-right:0;}

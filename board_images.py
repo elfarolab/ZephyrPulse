@@ -66,11 +66,19 @@ def select(boards, files):
     return result
 
 
+def detected_format(data):
+    """Identify the same raster signatures used for validation, plus LFS pointers."""
+    if data[:4] == b'RIFF' and data[8:12] == b'WEBP': return 'webp'
+    if data.startswith(b'\x89PNG\r\n\x1a\n'): return 'png'
+    if data.startswith(b'\xff\xd8\xff'): return 'jpeg'
+    if data.startswith((b'GIF87a', b'GIF89a')): return 'gif'
+    if data.startswith(b'version https://git-lfs.github.com/spec/v1\n'): return 'Git LFS pointer'
+    return 'unknown/unsupported signature'
+
+
 def valid_raster(data, suffix):
-    return {'webp': data[:4] == b'RIFF' and data[8:12] == b'WEBP',
-            'png': data.startswith(b'\x89PNG\r\n\x1a\n'),
-            'jpg': data.startswith(b'\xff\xd8\xff'), 'jpeg': data.startswith(b'\xff\xd8\xff'),
-            'gif': data.startswith((b'GIF87a', b'GIF89a'))}.get(suffix, False)
+    suffix = 'jpeg' if suffix == 'jpg' else suffix
+    return suffix in ('webp', 'png', 'jpeg', 'gif') and detected_format(data) == suffix
 
 
 def git_digest(data, oid):
@@ -129,7 +137,7 @@ def publish(repo, head, boards, docs, enabled=True):
         for name in missing[oid]:
             target = directory/name
             if not valid_raster(data, target.suffix[1:]):
-                logging.warning('Skipping non-raster board image: %s', desired[name][0][1]); continue
+                logging.warning('Skipping board image: %s (expected %s; detected %s)', desired[name][0][1], target.suffix[1:], detected_format(data)); continue
             if not target.is_file() or target.read_bytes() != data:
                 target.write_bytes(data); changed += 1
             valid.add(name)

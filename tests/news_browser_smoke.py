@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import sys
 from playwright.sync_api import sync_playwright
+from browser_geometry import assert_grid_rows
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from news_table import render_news_table
@@ -69,7 +70,19 @@ def main():
             # Capture the actual click target while preventing navigation in this isolated fixture.
             page.evaluate("""()=>{window.profileClick=null;document.querySelector('.pulse-board-profile-link').addEventListener('click',e=>{window.profileClick=e.currentTarget.getAttribute('href');e.preventDefault();});}""")
             profile.click();assert page.evaluate('window.profileClick')==board['url'];assert page.locator('.pulse-news-row:visible').count()==2
-            page.locator('.pulse-news-row').first.locator('.pulse-news-toggle').click();page.locator('.pulse-news-detail:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==1
+            page.locator('.pulse-news-row').first.locator('.pulse-news-toggle').click()
+            actions=page.locator('.pulse-news-detail:visible .pulse-news-links')
+            for glyph in ('commit','github','board','search'):
+                item=actions.locator('a').filter(has=page.locator('.pulse-i-'+glyph));assert item.count()==1,glyph
+                assert item.locator('.pulse-icon').get_attribute('aria-hidden')=='true'
+                assert item.locator('.pulse-icon').evaluate("el=>getComputedStyle(el).maskImage")!='none'
+            assert actions.locator('a').filter(has=page.locator('.pulse-i-board')).get_attribute('href')==board['url']
+            assert actions.locator('a').filter(has=page.locator('.pulse-i-github')).get_attribute('href').endswith(event['path'])
+            for width in (1440,390):
+                page.set_viewport_size({'width':width,'height':900})
+                assert actions.evaluate("el=>el.scrollWidth<=el.clientWidth+1"),width
+            page.set_viewport_size({'width':1440,'height':900})
+            page.locator('.pulse-news-detail:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==1
             page.locator('.pulse-news-detail:visible .pulse-subject-filter').click();assert page.locator('.pulse-news-row:visible').count()==2
         # Watchlist chips and visible subject links must be independently selectable.
         page.evaluate("""([e,b])=>{document.body.innerHTML='<div id="pulse-home-watch"></div><div id="pulse-home-fallback">fallback</div>';window.PulsePreferences={load:async()=>({data:{boards:[b],events:[e]},store:{get:()=>({boards:['kit'],vendors:[],peripherals:[],home_limit:8})}})};}""",[event,board])
@@ -89,7 +102,16 @@ def main():
         page.evaluate('html=>{document.body.innerHTML=html}',dashboard)
         assert page.locator('.pulse-stats a').count()==10;assert page.locator('.pulse-stats a[href="other.html"]').count()==1
         for width,columns in ((2048,5),(1440,5),(1024,5),(390,2),(320,1)):
-            page.set_viewport_size({'width':width,'height':900});assert page.locator('.pulse-stats').evaluate("el=>getComputedStyle(el).gridTemplateColumns.split(' ').length")==columns
+            page.set_viewport_size({'width':width,'height':900});assert_grid_rows(page.locator('.pulse-stats a'), columns, 10)
+        # Exercise the actual settings builder and fieldset geometry without a server.
+        page.evaluate("""()=>{document.body.innerHTML='<div id="pulse-settings"></div>';window.fetch=async()=>({ok:true,json:async()=>({preferences:{},watchlist:{},comparison:{snapshots:[]}})});}""")
+        page.add_script_tag(content=(ROOT/'docs/assets/preferences.js').read_text().replace("new URL('../',document.currentScript.src)", "new URL('https://pulse.test/')"))
+        page.locator('.pulse-settings-card').first.wait_for()
+        assert page.locator('.pulse-settings-card').count()==4
+        fields=page.locator('.pulse-settings-card').first.locator('.pulse-setting-field')
+        for width,columns in ((1440,2),(390,1),(1440,2)):
+            page.set_viewport_size({'width':width,'height':900});assert_grid_rows(fields, columns, 3)
+        print('Settings geometry passed: desktop 2 columns, mobile 1, desktop 2.')
         assert not errors,errors
         browser.close()
     print('Direct Chromium news table test passed: logo CSS, fallback, 205 rows, expansion, pagination, filters, mobile.')

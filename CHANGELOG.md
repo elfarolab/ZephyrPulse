@@ -1,3 +1,14 @@
+# v0.3.20 — Browser geometry regression fix
+
+- Correct the rendered-site settings assertion: CSS fieldset grid tracks can serialize as repeat()/minmax() expressions, not whitespace-separated columns. Check real child positions, expected row counts and overlap instead. Reuse the same check for dashboard layouts.
+- Exercise the actual settings builder at desktop and mobile widths in the direct browser smoke test. Keep CI enabled and allow the rendered smoke test to use an installed Chromium locally. No production code, configuration or database changes.
+
+# v0.3.19 — Expanded news action icons
+
+- Use local icons for Git commits, GitHub source files, board profiles, related categories, hardware search and exact subject filters in static and dynamic news details. Preserve links, filtering and keyboard behavior; let the compact action row wrap on small screens.
+- Improve skipped board-image warnings with the detected raster format or Git LFS pointer indicator; keep the existing validation and publication policy.
+- No database, classifier, configuration or renderer-template changes. The hardware analysis cache fingerprint is unchanged.
+
 # v0.3.18 — Compact overview and board navigation
 
 - Replace the redundant homepage category preview table with ten linked dashboard cards, including Other changes. Five columns on desktop, two on small screens, and one on very narrow screens; keep personal watchlist highlights and global feed links.
