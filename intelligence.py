@@ -344,8 +344,6 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         if p.name not in expected_pages: p.unlink()
     page_counts=Counter()
     stamp=f'Updated **{now:%Y-%m-%d %H:%M UTC}** · main snapshot `{head[:12]}`.\n\n'
-    cov=f"History: **{coverage['processed']} / {coverage['total']}** first-parent commits processed in the last {coverage['days']} days. {'Complete.' if coverage['complete'] else 'Backfill in progress; counts are incomplete.'}"
-    if coverage.get('classification_pending'): cov += f" Classifier refresh pending for {coverage['classification_pending']} previously processed commits; historical signals may be mixed until complete."
     idx=folder_index(boards)
     from board_links import BoardLinks, profile_url
     board_links=BoardLinks(boards)
@@ -375,7 +373,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
         same=path.is_file() and path.read_bytes()==content
         if not same: path.write_bytes(content)
         if name.startswith('boards/'): page_counts['unchanged' if same else 'changed']+=1
-    catalog=['# Board explorer','',stamp,cov,'','All discovered `board.yml` definitions, not only watched boards. Grouped by vendor in the browser. Expand a vendor to inspect its boards; filters search across all groups. [Compare hardware targets](compare.md).' ,'', '<div id="pulse-board-filter"></div>','', '| Board | Vendor | SoCs | Last detected milestone |','|---|---|---|---|']
+    catalog=['# Board explorer','',stamp,'','<div id="pulse-board-filter"></div>','', '| Board | Vendor | SoCs | Last detected milestone |','|---|---|---|---|']
     board_data=[]
     progress=Progress('Board pages',len(boards))
     for i,(key,b) in enumerate(sorted(boards.items(),key=lambda x:x[1]['name'].casefold()),1):
@@ -426,7 +424,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
             lines += ['</div></details>','']
         if not b['targets'] and not b['metadata']: lines += ['_No target metadata found._','']
         from news_table import render_board_timeline
-        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). [Global history coverage](../boards.md). One row per commit; expand evidence for individual signals. These are retained milestones, not complete commit file lists.",'',render_board_timeline(timeline,statuses,release_text)]
+        lines += ['## Recent support timeline','',f"Retained board milestones (last {coverage['days']} days). One row per commit; expand evidence for individual signals. These are retained milestones, not complete commit file lists.",'',render_board_timeline(timeline,statuses,release_text)]
         lines += ['','## Raw board-folder devicetree evidence','','These file-local declarations may apply to different variants or boards sharing the folder. Includes, overlays and Kconfig are not resolved.','','| File | Node | Explicit status | Compatible |','|---|---|---|---|']
         for r in b['raw']: lines.append(f"| {source_link(revision,r['path'])} ({md(PurePosixPath(r['path']).name)}) | {md(r['node'])} | {md(r['status'] or 'not explicit')} | {md(r['compatible'] or '—')} |")
         if not b['raw']: lines += ['| — | — | No local evidence | — |']
@@ -438,13 +436,13 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     for r in db.execute('SELECT a.*,h.committed FROM vendor_activity a JOIN history_seen h USING(sha)'):
         v=vendor_rows[r['vendor']]; v['counts'][r['signal']]+=1; v['authors'].add(r['author']); v['commits'].add(r['sha']); v['last']=max(v['last'],r['committed']); v['activity_days'][r['committed'][:10]].add(r['sha'])
     vendors=[]
-    vendor_lines=['# Vendor activity','',stamp,cov,'','Counts are distinct commit/vendor/signal combinations, not devices shipped. Vendor refers to the affected hardware namespace, **not the contributor’s employer**. Fixes are title signals; test changes are source changes, not coverage or pass rates.','','<div id="pulse-vendor-filter"></div>','','| Vendor | Hardware commits | New-board signals | Capability signals | Driver / sensor introduction signals | Driver changes | Fix signals | Test-source signals | Distinct Git authors | Latest activity |','|---|---:|---:|---:|---:|---:|---:|---:|---:|---|']
+    vendor_lines=['# Vendor activity','',stamp,'','<div id="pulse-vendor-filter"></div>','','| Vendor | Hardware commits | New-board signals | Capability signals | Driver / sensor introduction signals | Driver changes | Fix signals | Test-source signals | Distinct Git authors | Latest activity |','|---|---:|---:|---:|---:|---:|---:|---:|---:|---|']
     for name,v in sorted(vendor_rows.items(),key=lambda x:(-len(x[1]['commits']),x[0])):
         c=v['counts']; count=len(v['commits']); d={'vendor':name,'commits':count,'counts':dict(c),'authors':len(v['authors']),'last':v['last'],'daily':{day:len(shas) for day,shas in sorted(v['activity_days'].items())}}; vendors.append(d)
         vendor_lines.append(f"| [{md(name)}](boards.html?vendor={quote(name,safe='')}) | {count} | {c['board']} | {c['board_feature']} | {c['driver']+c['sensor']} | {c['driver_changes']} | {c['fix_signals']} | {c['test_source_changes']} | {d['authors']} | {v['last'][:10]} |")
     vendor_lines += ['','## Activity trends','','<div id="pulse-vendor-trends"></div>','','Missing days during backfill are not evidence of inactivity. Vendors absent from this table have no attributed signals in the processed history.']
     save('vendors.md',vendor_lines)
-    release_lines=['# Release and LTS tracking','',stamp,'Only the latest stable release is tracked by default; optional configured LTS series contribute their latest final tag. Development .99 and release-candidate tags are excluded. Inclusion means the exact main commit is reachable from a tag; cherry-picked backports and later reversions are not detected. It does not certify hardware operation.','','[Official release support / EOL policy](https://docs.zephyrproject.org/latest/releases/index.html) · LTS series are configured in `config.yml`; verify their current support dates upstream.','','## Tracked release tags','', '| Tag | Tag creator date | Configured LTS series |','|---|---|---|']
+    release_lines=['# Release and LTS tracking','',stamp,'','## Tracked release tags','', '| Tag | Tag creator date | Configured LTS series |','|---|---|---|']
     for t in reversed(tags): release_lines.append(f"| [{t['tag']}]({UPSTREAM}/releases/tag/{t['tag']}) | {md(t['date'][:10])} | {'Yes' if t['lts'] else '—'} |")
     if not tags: release_lines += ['| — | No eligible stable tags found | — |']
     release_lines += ['','## Configured support lifecycle','','Policy snapshot: '+md(policy.get('checked','not configured'))+'. Update this configuration from the official release page; the Git tags refresh automatically.','','| Series | Policy status | End of life |','|---|---|---|']
@@ -480,7 +478,7 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     if not prs['items']: pr_lines += ['| — | No matching proposals in snapshot | — | — |']
     save('upcoming.md',pr_lines)
     watched=[r for r in rows if r['watched']]
-    watch_lines=['# Watchlist','',stamp,'The overview and general feeds always include all hardware news. This page is an additional personal view. Patterns are case-insensitive; plain text matches substrings, and glob patterns support `*`, `?`, `[abc]`. Any matching board, vendor or peripheral qualifies. Board names, SoCs and target identifiers are searched.','','<div id="pulse-watchlist"></div>','','The [public watchlist RSS](watchlist.xml) follows server defaults, not your personal preferences.','','<div id="pulse-watch-fallback">','<h2>Server-configured watchlist (no JavaScript fallback)</h2>']
+    watch_lines=['# Watchlist','',stamp,'','<div id="pulse-watchlist"></div>','','<div id="pulse-watch-fallback">','<h2>Server-configured watchlist (no JavaScript fallback)</h2>']
     for r in watched:
         url=r.get('board_profile_url') or f'{UPSTREAM}/commit/{r["sha"]}'
         extras=' · '.join(f'<a href="{profile_url(boards[k])}">{escape(boards[k]["name"])}</a>' for k in r['boards'] if k in boards and profile_url(boards[k])!=url)
@@ -489,9 +487,9 @@ def render_extra(db,docs,now,head,boards,coverage,tags,prs,statuses,watch,site_u
     if not watched: watch_lines+=['<p>No matching events.</p>']
     watch_lines+=['</div>']
     save('watchlist.md',watch_lines)
-    save('compare.md',['# Hardware comparator','',stamp,'Compare exact board targets against your product requirements. Metadata is source evidence, not proof of working hardware. No builds are performed.','', '[Personal settings](settings.md) · [Board explorer](boards.md) · [Release policy](releases.md)','','<div id="pulse-comparator"></div>','','Without JavaScript, use the individual board profiles in the [board explorer](boards.md).'])
-    save('settings.md',['# Personal settings','', 'Preferences are stored in this browser and override published defaults. They never filter global news or change server configuration. Export a JSON file to transfer settings between browsers or projects.','','<div id="pulse-settings"></div>','','The public watchlist RSS remains server-configured. Collector interval, retention, upstream, deployment credentials and release policy remain administrator settings.'])
-    save('hardware-search.md',['# Hardware search','',stamp,'Search all exact board targets, recent events and upcoming PRs with case-insensitive terms or wildcards. This search uses the published JSON data independently of the static site generator.','', '<div id="pulse-hardware-search"></div>', '', 'Without JavaScript, use [Board explorer](boards.md), [All commits](all.md), [Upcoming PRs](upcoming.md) or the [JSON dataset](intelligence.json).'])
+    save('compare.md',['# Hardware comparator','',stamp,'','<div id="pulse-comparator"></div>'])
+    save('settings.md',['# Personal settings','', '<div id="pulse-settings"></div>'])
+    save('hardware-search.md',['# Hardware search','',stamp,'','<div id="pulse-hardware-search"></div>'])
     comparison=comparison_data(boards,snapshots,history,vendors)
     write_rss(docs/'watchlist.xml',watched,site_url,'Zephyr Pulse — Watchlist')
     from browser_data import publish_catalog

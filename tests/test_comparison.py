@@ -40,6 +40,23 @@ class ComparisonTest(unittest.TestCase):
         self.assertEqual(data['preferences']['requirements'],['can-fd']);self.assertIn('unwatched',(docs/'board.md').read_text()); self.assertNotIn('pulse-category-summary',(docs/'index.md').read_text()); self.assertIn('Watchlist highlights',(docs/'index.md').read_text())
         self.assertTrue((docs/'compare.md').exists());self.assertTrue((docs/'settings.md').exists())
 
+    def test_compact_explorer_headers_preserve_coverage(self):
+        now=dt.datetime.now(UTC); head=self.base; docs=self.root/'docs'
+        collect(self.db,self.g,head,now,72); boards=inventory(self.g,head)
+        cov={'processed':6504,'total':11193,'days':90,'complete':False,'classification_pending':4988}
+        render(self.db,docs,now,72,'https://example.invalid/',boards=boards)
+        render_extra(self.db,docs,now,head,boards,cov,[],{'status':'disabled','items':[]},{},{},'https://example.invalid/')
+        for page, marker in [('boards.md','pulse-board-filter'),('vendors.md','pulse-vendor-filter')]:
+            body=(docs/page).read_text()
+            self.assertIn(f'Updated **{now:%Y-%m-%d %H:%M UTC}**',body)
+            self.assertIn(marker,body)
+            for prose in ('History:', 'Backfill in progress', 'Classifier refresh pending', 'All discovered', 'Compare hardware targets'):
+                self.assertNotIn(prose,body)
+        self.assertEqual(json.loads((docs/'data/activity.json').read_text())['coverage'],cov)
+        self.assertNotIn('Global history coverage',next((docs/'boards').glob('*.md')).read_text())
+        self.assertNotIn('Hardware-focused news from upstream Zephyr.',(docs/'index.md').read_text())
+        self.assertNotIn('Declared capabilities, explicit source changes',(docs/'board_feature.md').read_text())
+
     def test_conservative_aliases(self):
         self.assertEqual(canonical('canfd'),'can-fd');self.assertEqual(canonical('can'),'can')
         self.assertEqual(canonical('usb_host'),'usb-host');self.assertEqual(canonical('usb_device'),'usb-device')

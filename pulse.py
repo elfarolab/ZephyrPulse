@@ -375,7 +375,7 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
     counts['board_feature'] = len(by_category['board_feature'])
     group_counts={k:len(group_events(by_category[k], k)) for k in GROUPED}
     related = subject_categories(rows)
-    home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'Hardware-focused news from upstream Zephyr. Source evidence is not proof of working hardware.','','<div class="pulse-stats">']
+    home=[front.replace('  - toc','  - toc\n  - navigation')+'# Zephyr Pulse','',header,'<div class="pulse-stats">']
     for k,v in DISPLAY_CATEGORIES.items():
         unit = group_unit(k) if k in GROUPED else 'events'
         count = group_counts.get(k, counts[k])
@@ -389,7 +389,7 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
         content = (f'<div data-pulse-category="{k}"></div>\n\n[Raw news JSON](events.json) · [All commits](all.md)' if dynamic_news else (render_grouped_news(by_category[k], k, statuses, boards, idx, commit_files) if k in GROUPED else render_news_table(by_category[k], statuses, boards, idx, related, category=k)))
         unit = group_unit(k)
         summary = f'{group_counts[k]} {unit} · {counts[k]} classified events' if k in GROUPED else f'{counts[k]} events'
-        note = 'Declared capabilities, explicit source changes and possible support are shown together. Possible support is not confirmed hardware support. Shared folder evidence is not target-specific.\n\n' if k == 'board_feature' else ''
+        note = ''
         (docs/f'{k}.md').write_text(front+f'# {v}\n\n'+header+note+summary+' · newest first.\n\n'+content)
     (docs/'board_candidate.md').write_text(front+'# Board capability changes\n\nPossible board support is now included in [Board capability changes](board_feature.md).\n\n<div data-pulse-legacy-board-candidate></div>\n')
     if dynamic_news:
@@ -400,7 +400,7 @@ def render(db, docs, now, hours, site_url, statuses=None, boards=None, dynamic_n
         all_content = '<div data-pulse-category="all"></div>\n\n[Raw news JSON](events.json)\n\n'+'\n'.join(fallback)
     else:
         all_content = render_grouped_news(rows, 'all', statuses, boards, idx, commit_files)
-    (docs/'all.md').write_text(front+'# All commits\n\n'+header+'One row per upstream commit. Expand for changed files and classified evidence.\n\n'+all_content)
+    (docs/'all.md').write_text(front+'# All commits\n\n'+header+all_content)
     (docs/'events.json').write_text(json.dumps({'updated':now.isoformat(),'window_hours':hours,'events':[dict(r) for r in rows]},indent=2,ensure_ascii=False))
     write_rss(docs/'feed.xml',rows,site_url)
 

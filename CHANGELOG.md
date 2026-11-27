@@ -1,3 +1,14 @@
+# v0.3.34 — Clean Board Explorer and Vendor activity headers
+
+- Remove history/backfill/classifier progress paragraphs from Board Explorer and Vendor activity. Keep coverage in the published activity JSON and collector logs; remove the obsolete board-profile link to global history coverage.
+- Preserve the update stamp, filters, counts and tables. Include v0.3.33 intro cleanup in the incremental package for users upgrading directly from v0.3.32.
+
+## v0.3.33
+
+- removed descriptive intro paragraphs from homepage and list pages so pages start with the update stamp and then move directly into cards, controls, or tables
+- simplified board capability changes and related views by dropping explanatory notes above the table
+- trimmed auxiliary intro copy from board explorer, watchlist, hardware search, compare, settings, vendor, release, and upcoming PR pages for a cleaner, faster-scanning UI
+
 # v0.3.32 — Compact single-line tables
 
 - Keep collapsed news rows to one line, including long titles and targets; full values are available in tooltips and expanded evidence. All category, mixed, watchlist, release and board-activity tables share the compact layout. Keep sorting based on full original values, not badges.
